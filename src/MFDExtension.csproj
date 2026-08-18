@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- KSP 1.12.5 runs Unity 2019.4 / Mono: target .NET Framework 4.7.2 -->
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <AssemblyName>MFDExtension</AssemblyName>
+    <RootNamespace>MFDExtension</RootNamespace>
+    <Version>0.1.0</Version>
+    <DebugType>none</DebugType>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Compile against reference assemblies even without a local targeting pack -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Minimal on purpose: this project talks to RPM/MAS by reflection only
+         (no RPM.dll/MAS.dll reference), per the shared-framework design notes.
+         Add UGUI/ToolbarControl references here only if/when a desktop
+         toolbar window is added — not needed for prop/page handlers. -->
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\KSP_x64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Deploy the plugin DLL into the mod folder KSP actually loads —
+       the nested GameData/MFDExtension/ payload (mirrors the GitHub repo's own
+       GameData/MFDExtension/ layout), same convention as KRAB/KRILL. -->
+  <Target Name="DeployToGameData" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\..\GameData\MFDExtension\Plugins\" />
+  </Target>
+
+</Project>

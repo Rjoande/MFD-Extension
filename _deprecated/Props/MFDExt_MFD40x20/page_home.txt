@@ -1,0 +1,20 @@
+﻿[hw]      [#00FFFFFF]SA[#FFFFFFFF]     |  [#00FFFFFF]BATT[#FFFFFFFF]   |   [#00FFFFFF]KRAB[#FFFFFFFF]   |  [#00FFFFFF]KRILL[#FFFFFFFF]  |     [#707070FF]--[#FFFFFFFF]    |     [#707070FF]--[#FFFFFFFF]    |    [#707070FF]--[#FFFFFFFF]
+
+
+
+
+
+
+       MFDExt v0.1.0 - Module Bay
+      Built on RasterPropMonitor /
+       MOARdV's Avionics Systems
+
+       Additional bays available
+        from certified suppliers
+
+
+
+
+-[hw] HOME[/hw] MFDExt v0.1.0
+
+[hw]      [#707070FF]--[#FFFFFFFF]     |   [#707070FF]--[#FFFFFFFF]    |    [#707070FF]--[#FFFFFFFF]    |   [#707070FF]--[#FFFFFFFF]    |    [#707070FF]--[#FFFFFFFF]    |    [#707070FF]--[#FFFFFFFF]     |    [#707070FF]--[#FFFFFFFF]

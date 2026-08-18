@@ -1,0 +1,9 @@
+
+
+  SITUATIONALAWARENESS MODULE
+         NOT DETECTED
+
+   This bay is unconfigured.
+   Contact your mod provider
+    for compatible hardware.
+

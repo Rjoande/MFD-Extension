@@ -1,0 +1,20 @@
+
+
+      MFD Extended - stby_MFDExt
+
+   Reached via R9 (direct) or
+   via STBY cycle (fallback).
+
+
+   This confirms both entry
+   paths reach the same page.
+
+
+
+
+
+
+- HOME MFD Extended v0.1.0
+
+
+
