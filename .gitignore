@@ -1,69 +1,18 @@
-# Prerequisites
-*.d
+# Build artifacts (Directory.Build.props already redirects obj/bin outside
+# this folder, onto C:, for exFAT reasons — these entries are just a safety
+# net in case that ever changes, or for anyone building without that props file).
+src/obj/
+src/bin/
+src/.vs/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Internal development material — design decisions, research handoff notes,
+# the Claude Code project hub — not part of the shipped mod, kept local only.
+notes/
+CLAUDE.md
 
-# Precompiled Headers
-*.gch
-*.pch
+# Texture working files: only the exported .png ships with the mod.
+GameData/MFDExtension/Textures/*.psd
 
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-*.so.*
-
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# Build directories
-build/
-Build/
-build-*/
-
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
-
-# Temporary files
-*.tmp
-*.log
-*.bak
-*.swp
-
-# vcpkg
-vcpkg_installed/
-
-# debug information files
-*.dwo
-
-# test output & cache
-Testing/
-.cache/
+# OS/editor cruft
+.DS_Store
+Thumbs.db
