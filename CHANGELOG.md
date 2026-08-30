@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.0
+
+- **New bay F: CAS (Crew Alerting System)**, a self-contained WARNING/CAUTION/ADVISORY fault summary. Reads DangIt failures (labeled by the specific fault name when known, e.g. "ALTERNATOR", falling back to the generic "FAILURE"), FAR stall warnings ("STALL"), and RealBattery malfunction states ("RUNAWAY"/"OVERHEAT"/"EOL"; end-of-life only, not charge level, which stays on bay B). All by reflection, no compile-time dependency on any of the three optional mods. Shows a "no fault sources detected" message if none are installed.
+- **Bay labels renamed to match function, not mod name**, same convention the host prop's own labels (`AUTO`, `GRAPH`, `TRGT`) already use: KRAB-9000 → **FADEC** (bay C), KRILL → **SWC** (bay D), RealBattery → **BMS** (bay B, Battery Management System). Mod names are unchanged everywhere else (page names, `NEEDS[]` tokens, repo links).
+
+### Extras/VVEFIS (optional — requires VesselView Continued)
+
+- **New**: "EFIS SEVERITY", a custom VesselView color mode installed alongside VesselView/VesselViewRPM without patching any of its files (`Extras/VVEFIS/`, its own `VVEFIS.dll` — doesn't affect the rest of the framework or require VesselView for anything else in this package). Colors every part on a WARNING/CAUTION/ADVISORY/INDICATION severity scale grounded in FAA/EASA/MIL-STD color conventions, the same palette CAS uses on its text page. Reads DangIt failures, FAR stall warnings, RealBattery (runaway, overheat, end-of-life, and charge level), and generic fuel/engine condition, replacing VesselView's own separate STATE-mode fill colors and hardcoded engine icons with one coherent per-part reading. A pulsing red border marks genuine malfunctions (DangIt, FAR stall, RealBattery runaway/overheat, active fuel/power/air deprivation) separately from mere depletion (an empty tank, a low or disabled battery, a flamed-out engine), which get color-only feedback (same distinction as a real Master Caution/Warning annunciator).
+
 ## v0.1.1
 
 - **All fifteen buttons (A-G, R1-R7) now behave uniformly**, not just A-E: every one redirects into our own world via the same Lua mechanism, with native host behavior preserved outside it. F, G, and the bottom row (NAV/ORB/DOCK/DATA/CREW/RSRC/EXT) — previously unmapped and prone to dropping the player into the host's own pages with no easy way back. Now they show a shared "unassigned module slot" placeholder instead, staying inside the framework's own navigation.
