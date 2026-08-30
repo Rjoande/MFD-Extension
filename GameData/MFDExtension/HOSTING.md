@@ -16,9 +16,9 @@ implementation exists but is unverified and archived — see
 ```
    host's own home page                  MFD Extended hub (MFDExt_Stby)
   ┌───────────────────────┐  NEXT/PREV  ┌───────────────────────────┐
-  │ ATT GRAPH TRGT AUTO...│ ──────────► │ SA BATT KRAB KRILL ILS ...│
-  │                        │ ◄────────── │                           │
-  └───────────────────────┘   STBY      └───────────────────────────┘
+  │ ATT GRAPH TRGT AUTO...│ ──────────► │ SA BMS FADEC SWC ILS ...  │
+  │                       │ ◄────────── │                           │
+  └───────────────────────┘    STBY     └───────────────────────────┘
                                               │  A-G           ▲
                                               ▼                │  STBY
                                         ┌──────────────┐       │
@@ -40,30 +40,84 @@ implementation exists but is unverified and archived — see
 
 | Button | Bay | Status |
 |---|---|---|
-| A | SA (SituationalAwareness) | placeholder ("no monitor yet") |
-| B | BATT (RealBattery) | placeholder ("no monitor yet") |
-| C | KRAB (KRAB-9000) | placeholder ("no monitor yet") |
-| D | KRILL | placeholder ("no monitor yet") |
+| A | SA (SituationalAwareness) | hello-world (real design not built yet) |
+| B | BMS (RealBattery) | working — real per-vessel telemetry (L1) |
+| C | FADEC (KRAB-9000) | hello-world (real design not built yet) |
+| D | SWC (KRILL) | hello-world (real design not built yet) |
 | E | ILS (NavInstruments) | bridged via `RPM_MODULE`, least battle-tested part of this release |
-| F, G | — | unclaimed — shows the shared "unassigned slot" page, open for a future bay |
-| R1-R7 (NAV/ORB/DOCK/DATA/CREW/RSRC/EXT) | — | same shared "unassigned slot" page as F/G |
+| F | CAS | our own textual WARNING/CAUTION/ADVISORY fault summary (DangIt + FAR), see below |
+| G | — | unclaimed — shows the shared "unassigned slot" page, open for a future bay |
+| R1-R7 (NAV/ORB/DOCK/DATA/CREW/RSRC/EXT) | — | same shared "unassigned slot" page as G |
 
 Order isn't arbitrary but isn't sacred either: A-D were reserved first for
 our own four mods when the project started, E was the first slot given to
 an external mod (NavInstruments) once the additive branch proved out. F/G
 and the bottom row are open for the next ones.
 
+**On-screen labels name the function, not the mod** — same convention the
+host prop itself already uses (`AUTO`, `GRAPH`, `TRGT`: what a page does,
+never a brand). SA already read this way by coincidence; KRAB-9000 and
+KRILL didn't, so their labels became **FADEC** and **SWC** (2026-08-19).
+RealBattery's own **BATT** read function-first too, by the same
+coincidence as SA — renamed to **BMS** anyway (2026-08-27, "Battery
+Management System") for a clearer/more specific functional name — the mod
+names are unchanged everywhere else (page names, `NEEDS[]` tokens, this
+table's "Bay" column), only the text in `Pages/MFDExt_Stby.cfg`'s label row
+changed. Pick a function-first label
+for any new bay too, not the hosting mod's name.
+
 **Unclaimed slots stay inside our world.** Before 2026-08-19, pressing F,
 G, or any of the bottom row from inside MFDExt dropped the player straight
 into the host's own native pages (Docking, ShipInfo, EngineIgnitor...) —
 technically harmless, but STBY from there goes straight to the host's
 home (it's a genuine host page, not one of ours), not back to our hub, so
-the player had to re-enter through NEXT/PREV to get back. All nine now
-redirect to one shared placeholder page (`Pages/MFDExt_Unclaimed.cfg`)
+the player had to re-enter through NEXT/PREV to get back. All nine
+redirected to one shared placeholder page (`Pages/MFDExt_Unclaimed.cfg`)
 when pressed from inside our world, exactly like a real bay would — their
-native behavior from a host page is untouched. Claiming one of these for
-a real bay later means giving it its own `MFDExt_Button<X>` target instead
-of `MFDExt_Unclaimed`, same recipe as any other bay.
+native behavior from a host page is untouched. F has since been claimed
+(see "The CAS bay" below); G and the bottom row still work this way.
+Claiming one of these for a real bay means giving it its own
+`MFDExt_Button<X>` target instead of `MFDExt_Unclaimed`, same recipe as
+any other bay.
+
+## The CAS bay (F)
+
+A self-contained example of a bay that ships entirely from THIS repo
+rather than a hosted mod's — useful as a reference if you want to add a
+bay of your own that isn't tied to an external mod.
+
+`MFDExt_CAS` is a text page (`Pages/MFDExt_CAS.cfg`): a WARNING/CAUTION/
+ADVISORY fault summary, reading DangIt failures, FAR stall warnings, and
+RealBattery runaway/overheat/end-of-life states via reflection
+(`src/Shared/DangItBridge.cs`, `src/Shared/FARBridge.cs`,
+`src/Shared/RealBatteryBridge.cs` — no compile-time reference to any of the
+three optional mods; source-linked into this DLL by the default SDK glob
+since `Shared/` sits under the same `src/` root, no explicit
+`<Compile Include>` needed here unlike Extras/VVEFIS, which is a separate
+project tree and does need one — see any of the three files' headers for
+the "shared basket" rationale). Deliberately excludes fuel, generic engine
+condition, and RealBattery's own charge level (SC_SOC)/disabled flag (see
+`src/Cas/CasAggregator.cs` for the reasoning) — this is an alert list, not
+a full status dashboard.
+
+Two things make this bay different from A-E:
+
+- **Its `MAS_PAGE` is ungated** (`Pages/MFDExt_CAS.cfg`) — unlike SA/BATT/
+  KRAB/KRILL, nothing external needs to ship a competing page under this
+  name, so there's no collision risk to guard against and no `NEEDS[!X]`
+  fallback needed. The page always exists; only its *content* depends on
+  DangIt/FAR, handled internally (degrades to an explanatory message, see
+  `CasAggregator.NoSourcesPage`).
+- **It's the first real compiled code MFD Extended ships** (`MFDExtCasModule`,
+  an `InternalModule` registered as a companion `MODULE` on the prop,
+  §5 of `Config/Additive/MAS_BasicMFD.cfg`) via MAS's `textmethod` bridge —
+  `TEXT { textmethod = ClassName:MethodName }`, resolved by matching
+  `ClassName` among the prop's own `internalModules` (same lookup as
+  `RPM_MODULE`'s `moduleName`), calling `string MethodName(int screenWidth,
+  int screenHeight)` (signature verified against MAS's real source,
+  `Source/MASPageText.cs` — the wiki doesn't document it in enough detail).
+  This changes what "no DLL required" means for this release — see
+  Requirements below.
 
 ## How the physical buttons actually work (read this before adding a bay)
 
@@ -306,11 +360,13 @@ way.
 
 ## Status of this release
 
-Only the hub, navigation, and the ILS bay have real functionality. SA,
-BATT, and KRAB show the "not detected" placeholder — their actual content
-ships from each mod's own repository, following the "adding a new bay"
-recipe above, once each one has something to show. KRILL is in the same
-position as of 2026-08-19 (its real content moved from living directly in
-this repo to shipping from KRILL's own, per the same recipe). F, G, and
-the bottom row are unclaimed, showing the shared "unassigned slot" page
-rather than leaking into the host's own ecosystem.
+The hub, navigation, ILS, and CAS all have real functionality, and so does
+BMS (RealBattery) — real per-vessel telemetry (its L1 content), not just a
+hello-world. SA, FADEC, and SWC ship only a hello-world confirmation page
+from their own repositories so far (end-to-end proof that registration +
+button routing + content all work) — their actual designed content lands
+whenever each one is ready, following the "adding a new bay" recipe above;
+the "not detected" placeholder shown in this section only ever applies when
+the corresponding mod isn't installed at all. G and the bottom row are
+unclaimed, showing the shared "unassigned slot" page rather than leaking
+into the host's own ecosystem.

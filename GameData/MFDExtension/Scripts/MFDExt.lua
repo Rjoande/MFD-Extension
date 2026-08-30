@@ -22,6 +22,7 @@ local MFDExt_OwnPages = {
 	["MFDExt_KRILL_Placeholder"] = true,
 	["MFDExt_ILS"] = true,
 	["MFDExt_Unclaimed"] = true,
+	["MFDExt_CAS"] = true,
 }
 
 -- Hosted bays may register a function here, keyed by their own page name,
@@ -58,7 +59,9 @@ function MFDExt_ButtonA(monitorID)
 	end)
 end
 
--- Button B ("BATT" in our label row). Incidentally fixes an upstream typo:
+-- Button B ("BMS" in our label row - RealBattery's Battery Management
+-- System, renamed from "BATT" 2026-08-27, same function-not-mod-name
+-- convention as FADEC/SWC). Incidentally fixes an upstream typo:
 -- the host's own onClick sends "MAS_JSI_BasicMFD_Graphs" (missing "B_"),
 -- which was never a registered page name - our override supplies the
 -- correct target as its "host" branch. See CLAUDE.md 2026-08-14.
@@ -92,19 +95,24 @@ function MFDExt_ButtonE(monitorID)
 	end)
 end
 
--- F, G, and the bottom row (R1-R7 / NAV-ORB-DOCK-DATA-CREW-RSRC-EXT) aren't
--- real bays yet - all nine share one placeholder page (MFDExt_Unclaimed)
--- instead of leaking into the host's own ecosystem when pressed from
--- inside our world (see Pages/MFDExt_Unclaimed.cfg for why that mattered).
--- Native behavior outside our world is untouched, exactly like A-E: eight
--- of these nine are fixed onClick like B/C/E, R2 alone routes through
--- fc.SendSoftkey(17) like A/D (verified on the real source, 2026-08-19 -
--- never assume the scheme from another button, check every one).
+-- Button F ("CAS" in our label row) - our own textual fault-summary page
+-- (WARNING/CAUTION/ADVISORY), backed by MFDExtCasModule (src/Cas/). Claimed
+-- 2026-08-19, first bottom/top slot to move out of the shared Unclaimed
+-- placeholder.
 function MFDExt_ButtonF(monitorID)
-	MFDExt_Redirect(monitorID, "MFDExt_Unclaimed", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_CAS", function(id)
 		fc.SetPersistent(id, "MAS_JSI_BasicMFD_F_EngineIgnitor")
 	end)
 end
+
+-- G and the bottom row (R1-R7 / NAV-ORB-DOCK-DATA-CREW-RSRC-EXT) still
+-- aren't real bays - all eight share one placeholder page (MFDExt_Unclaimed)
+-- instead of leaking into the host's own ecosystem when pressed from
+-- inside our world (see Pages/MFDExt_Unclaimed.cfg for why that mattered).
+-- Native behavior outside our world is untouched, exactly like A-F: seven
+-- of these eight are fixed onClick like B/C/E, R2 alone routes through
+-- fc.SendSoftkey(17) like A/D (verified on the real source, 2026-08-19 -
+-- never assume the scheme from another button, check every one).
 
 function MFDExt_ButtonG(monitorID)
 	MFDExt_Redirect(monitorID, "MFDExt_Unclaimed", function(id)

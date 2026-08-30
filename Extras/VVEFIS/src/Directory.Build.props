@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Keep MSBuild intermediates off the exFAT game drive (1 MB clusters waste space on small files). -->
+    <BaseIntermediateOutputPath>$(LOCALAPPDATA)\VVEFIS\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(LOCALAPPDATA)\VVEFIS\bin\$(MSBuildProjectName)\</BaseOutputPath>
+  </PropertyGroup>
+</Project>

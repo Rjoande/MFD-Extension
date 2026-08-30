@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- KSP 1.12.5 runs Unity 2019.4 / Mono: target .NET Framework 4.7.2 -->
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+    <AssemblyName>VVEFIS</AssemblyName>
+    <RootNamespace>VVEFIS</RootNamespace>
+    <Version>0.2.0</Version>
+    <DebugType>none</DebugType>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Compile against reference assemblies even without a local targeting pack -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Source-linked shared basket (2026-08-24 refactor, see
+         src/Shared/DangItBridge.cs header for the rationale): DangIt/FAR/
+         RealBattery readers, the Tier scale, and mod-presence checks are
+         compiled INTO this DLL from MFDExtension's own src/Shared/ - no
+         extra runtime DLL, VVEFIS stays independently promotable to a
+         standalone mod (it just needs to keep carrying these few files). -->
+    <Compile Include="..\..\..\src\Shared\*.cs">
+      <Link>Shared\%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Stock KSP/Unity references. Extras/VVEFIS/src is 5 levels below the KSP
+         install root (Extras\VVEFIS\src\ -> MFDExtension\ -> GameData\ -> root). -->
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- VesselView/VesselViewRPM: the whole point of this satellite, a real (not
+         reflection-based) dependency - see VVEFISAddon.cs for why touching these
+         types is still guarded behind a runtime AssemblyLoader check. DangIt, by
+         contrast, is read purely by reflection (see DangItBridge.cs) since it's
+         genuinely optional and this project's convention is to avoid a hard
+         reference to an optional dependency's assembly. -->
+    <Reference Include="VesselView">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\VesselView\Plugins\VesselView.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VesselViewRPM">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\VesselView\Plugins\VesselViewRPM.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="VesselViewPlugin">
+      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\VesselView\Plugins\VesselViewPlugin.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Deploy the plugin DLL into MFDExtension's own Extras/ payload area, not
+       Plugins/ (that one is reserved for a possible future MFDExtension.dll
+       itself - see CLAUDE.md). -->
+  <Target Name="DeployToGameData" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\..\..\..\GameData\MFDExtension\Extras\VVEFIS\" />
+  </Target>
+
+</Project>

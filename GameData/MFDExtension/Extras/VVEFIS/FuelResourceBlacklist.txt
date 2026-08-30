@@ -1,0 +1,157 @@
+// VVEFIS - FUEL resource blacklist
+//
+// Resources listed here are IGNORED by the "EFIS SEVERITY" custom color
+// mode's fuel-level reading (the green/cyan/magenta/yellow gauge for tanks
+// and integrated-propellant engines). A part whose only sizeable resource
+// is one of these will show as "no data" (neutral) instead of being colored
+// by it - exactly as if the part didn't carry that resource at all.
+//
+// Why this file exists: VesselView's own fuel formula averages EVERY
+// resource a part carries, with no concept of "this one isn't propellant".
+// A UniversalStorage service-module shroud carrying 20/150 SpareParts
+// (13%) read Advisory Magenta even though every real propellant tank
+// inside it was completely full - the repair-stock resource was driving
+// the color, not the fuel. This list is how that gets corrected without
+// silently guessing: an editable, visible ledger you can add to or trim.
+//
+// FORMAT
+//   - One resource name per line (the exact name from the resource's
+//     RESOURCE_DEFINITION / a right-click part info, case-sensitive).
+//   - "//" starts a comment - everything after it on that line is ignored.
+//   - Blank lines are ignored.
+//   - Changes apply the next time the game (or the KSP process) loads this
+//     file - no recompile needed. If this file is ever deleted or becomes
+//     unreadable, the mod falls back to an embedded copy of the same list
+//     frozen inside VVEFIS.dll, so nothing breaks - you just lose the
+//     ability to edit it without a rebuild until the file comes back.
+//
+// This list was compiled 2026-08-26 by surveying every RESOURCE_DEFINITION
+// across the author's own GameData install and sorting by what each
+// resource actually IS - not by which ones happened to appear in the one
+// test craft that found the bug. It is NOT exhaustive of every resource
+// mod that could ever exist; a resource under a name not listed here
+// simply behaves as before (counted toward the fuel average) until you (or
+// a future update) add it.
+//
+// TWO EXCEPTIONS to this list, handled in code (not here), for context:
+//   - If a resource on this list is the ONLY active resource a part
+//     carries, it counts as fuel anyway - a dedicated Ore or Snacks
+//     container's fill level IS the useful reading; there's nothing else
+//     on that part for it to crowd out or be confused with.
+//   - A resource with its flow manually disabled (right-click "Disable
+//     Flow", e.g. to run a tank as inert ballast/structural mass) is
+//     skipped entirely, regardless of whether it's on this list - a
+//     deliberately-disabled tank reads as "no data", not "empty".
+//
+// Deliberately NOT listed here (kept as real "fuel" on purpose): Karbonite/
+// Karborundum and every Real-Fuels-style chemical propellant (Aerozine50,
+// Hydrazine, Kerosene, LqdOxygen, LqdMethane, NTO...), electric-propulsion
+// propellants (XenonGas, ArgonGas, Krypton/Neon/Helium variants), and
+// reactor/engine "fuels" like EnrichedUranium/FusionPellets/Antimatter -
+// these ARE what their respective engines burn, so their level is exactly
+// what a fuel gauge should show.
+
+// --- Power / charge -----------------------------------------------------
+// A different physical quantity than propellant (see RealBatteryBridge's
+// own reasoning for why EC and StoredCharge never get averaged together
+// for a RealBattery part). ThermalPower/WasteHeat are instantaneous flux,
+// not something stored in a tank at all.
+ElectricCharge
+StoredCharge
+Megajoules
+ThermalPower
+WasteHeat
+
+// --- Life support / crew consumables ------------------------------------
+// "How much food/water/air is left" is real information, just not FUEL.
+Snacks
+Soil
+Food
+Water
+WasteWater
+Waste
+Oxygen
+CarbonDioxide
+Fertilizer
+Mulch
+Supplies
+ColonySupplies
+
+// --- Repair / maintenance stock ------------------------------------------
+// SpareParts is the resource that triggered this whole fix (DangIt's own
+// repair-material resource, also used by Community Resource Pack).
+SpareParts
+RocketParts
+MaterialKits
+SpecializedParts
+Machinery
+Recyclables
+
+// --- Heat shield ----------------------------------------------------------
+// Depletion is a real concern, just a different one than "how much can
+// this engine still burn". Giving Ablator its own reading is a possible
+// future feature, not something to fold into FUEL by accident.
+Ablator
+
+// --- Raw ISRU / mining / industrial cargo (Community Resource Pack) -----
+// Feedstock a vessel carries, not something an engine burns.
+Ore
+MetallicOre
+Minerals
+ExoticMinerals
+RareMetals
+RefinedExotics
+Metals
+Substrate
+Organics
+Rock
+Dirt
+Gypsum
+Hydrates
+Lead
+Chemicals
+Silicates
+Silicon
+Regolith
+Monazite
+Spodumene
+Fluorite
+Nitratine
+Salt
+Sodium
+Calcium
+Magnesium
+Aluminium
+Alumina
+Potassium
+Borate
+Caesium
+Chlorine
+Fluorine
+Carbon
+DepletedFuel
+DepletedUranium
+Uraninite
+Polymers
+Actinides
+
+// --- Momentary / near-field resources (no meaningful "tank level") -------
+// Produced and consumed within the same tick, or a live buffer rather
+// than real storage. IntakeAir/IntakeAtm/IntakeLqd are usually also
+// caught by the "no real capacity" check regardless of this list, but are
+// listed here too for robustness independent of the part's maxAmount.
+IntakeAir
+IntakeAtm
+IntakeLqd
+CompressedAir
+RamPower
+ChargedParticles
+SolarWind
+VacuumPlasma
+ExoticMatter
+
+// --- Misc non-propulsion resources found in this install's mod set ------
+bd_filmStock    // Bluedog Design Bureau camera film stock
+FSCoolant       // Firespitter engine coolant
+MJPropellant    // MechJeb pod resource, not vessel propellant
+BallastTons     // RjoandeFix ballast weight resource
