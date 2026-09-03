@@ -18,6 +18,14 @@ local MFDExt_OwnPages = {
 	["MFDExt_Stby"] = true,
 	["MFDExt_SA_Placeholder"] = true,
 	["MFDExt_BATT"] = true,
+	-- RealBattery's own L2 sub-page (see MFDExt_BATT_Nav.lua in its repo,
+	-- and HOSTING.md's "Overriding your own button") - pressing B while on
+	-- MFDExt_BATT jumps here via MFDExt_OwnButtonOverrides, but without
+	-- THIS registration too, pressing B again from here doesn't count as
+	-- "already on one of our own pages" and falls through to the host's own
+	-- native fallback (MAS's GRAPH page) instead of back to MFDExt_BATT -
+	-- bug found and fixed 2026-08-30.
+	["MFDExt_BATT_Fleet"] = true,
 	["MFDExt_KRAB_Placeholder"] = true,
 	["MFDExt_KRILL_Placeholder"] = true,
 	["MFDExt_ILS"] = true,

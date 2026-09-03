@@ -4,8 +4,8 @@
     <!-- KSP 1.12.5 runs Unity 2019.4 / Mono: target .NET Framework 4.7.2 -->
     <TargetFramework>net472</TargetFramework>
     <LangVersion>8.0</LangVersion>
-    <AssemblyName>VVEFIS</AssemblyName>
-    <RootNamespace>VVEFIS</RootNamespace>
+    <AssemblyName>VVThermalMap</AssemblyName>
+    <RootNamespace>VVThermalMap</RootNamespace>
     <Version>0.3.0</Version>
     <DebugType>none</DebugType>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -17,20 +17,22 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Source-linked shared basket (2026-08-24 refactor, see
-         src/Shared/DangItBridge.cs header for the rationale): DangIt/FAR/
-         RealBattery readers, the Tier scale, and mod-presence checks are
-         compiled INTO this DLL from MFDExtension's own src/Shared/ - no
-         extra runtime DLL, VVEFIS stays independently promotable to a
-         standalone mod (it just needs to keep carrying these few files). -->
-    <Compile Include="..\..\..\src\Shared\*.cs">
-      <Link>Shared\%(Filename)%(Extension)</Link>
+    <!-- Unlike VVEFIS, this satellite has no severity/arbitration logic - no
+         DangIt/FAR/RealBattery/Tier/FuelEngineReader involved (see
+         Extras/VVThermalMap/CLAUDE.md design principles: pure skin-temperature
+         overlay, independent of VVEFISSeverity). Only ModPresence.cs is
+         actually needed, for the same "is VesselViewRPM loaded?" check
+         VVEFISAddon uses - so only that one file is source-linked, not the
+         whole Shared/*.cs basket. -->
+    <Compile Include="..\..\..\src\Shared\ModPresence.cs">
+      <Link>Shared\ModPresence.cs</Link>
     </Compile>
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Stock KSP/Unity references. Extras/VVEFIS/src is 5 levels below the KSP
-         install root (Extras\VVEFIS\src\ -> MFDExtension\ -> GameData\ -> root). -->
+    <!-- Stock KSP/Unity references. Extras/VVThermalMap/src is 5 levels below
+         the KSP install root (Extras\VVThermalMap\src\ -> MFDExtension\ ->
+         GameData\ -> root). -->
     <Reference Include="Assembly-CSharp">
       <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
@@ -43,12 +45,10 @@
       <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- VesselView/VesselViewRPM: the whole point of this satellite, a real (not
-         reflection-based) dependency - see VVEFISAddon.cs for why touching these
-         types is still guarded behind a runtime AssemblyLoader check. DangIt, by
-         contrast, is read purely by reflection (see DangItBridge.cs) since it's
-         genuinely optional and this project's convention is to avoid a hard
-         reference to an optional dependency's assembly. -->
+    <!-- VesselView/VesselViewRPM: same real (not reflection-based) dependency
+         as VVEFIS, for the same reason - registering a custom color mode
+         needs the real types. See VVEFISAddon.cs for why touching these
+         types must stay guarded behind a runtime AssemblyLoader check. -->
     <Reference Include="VesselView">
       <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\VesselView\Plugins\VesselView.dll</HintPath>
       <Private>false</Private>
@@ -67,7 +67,7 @@
        Plugins/ (that one is reserved for a possible future MFDExtension.dll
        itself - see CLAUDE.md). -->
   <Target Name="DeployToGameData" AfterTargets="Build">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\..\..\..\GameData\MFDExtension\Extras\VVEFIS\" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\..\..\..\GameData\MFDExtension\Extras\VVThermalMap\" />
   </Target>
 
 </Project>

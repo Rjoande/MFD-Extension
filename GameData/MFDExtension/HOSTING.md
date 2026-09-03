@@ -226,6 +226,16 @@ No override registered is the common case and is completely fine — the
 button will simply do nothing while you're already looking at your own
 page, exactly as if it weren't wired at all.
 
+**If your override jumps to a second page of your own** (like the
+`MFDExt_YourBay_Page2` example above), **add that page's name to
+`MFDExt_OwnPages` too**, not just your first one. Otherwise the button
+press that's supposed to bring you back (any *other* MFDExt page jumps
+straight to a button's own bay) won't recognize your second page as "one of
+ours", and falls through to that button's `hostFallback` instead — on
+BasicMFD that's often a completely unrelated host page. Found the hard way
+2026-08-30: RealBattery's own L2 fleet view jumped to MAS's GRAPH page
+instead of back to L1 until its name was added.
+
 ## Not-detected placeholder
 
 Every one of our own four bays ships exactly **one** `MAS_PAGE`, gated by

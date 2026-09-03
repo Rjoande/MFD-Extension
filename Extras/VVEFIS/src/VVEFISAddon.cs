@@ -17,6 +17,23 @@ namespace VVEFIS
     [KSPAddon(KSPAddon.Startup.Flight, true)]
     public class VVEFISAddon : MonoBehaviour
     {
+        // In-flight wireframe toggle (2026-09-01, user's request, after the
+        // separate "EFIS WF" satellite was tried and archived - see
+        // _deprecated/VVEFISWF/). Global to the process, not per-screen (the
+        // user's explicit call): every VV monitor running EFIS SEVERITY
+        // shares this one flag. Read by wireColorDullDelegate below - VV's
+        // OWN native "dull" mechanism (VesselViewer.GetPartColor halves the
+        // wire color's RGB when the dull delegate returns true) already IS
+        // the "slightly darker tint of the fill" the user asked about, so no
+        // custom darkening math was needed, just wiring this flag into it.
+        // Reachable from the SAME menu already used to pick "EFIS SEVERITY"
+        // in the first place, no new button/softkey wiring: VV's menu text
+        // overlay and its live 3D render are independent channels of the
+        // same screen (InternalVesselView.ShowMenu vs. RenderViewer), not
+        // alternating states - the toggle item added to CreateMenu below sits
+        // on screen right on top of the live rotating vessel.
+        private static bool wireframeEnabled = false;
+
         void Start()
         {
             // This method must never touch a VesselView/VesselViewRPM type
@@ -83,7 +100,11 @@ namespace VVEFIS
             settings.boxColorDelegate = (mode, part) => VVEFISSeverity.BoxColor(part);
 
             settings.fillColorDullDelegate = mode => false;
-            settings.wireColorDullDelegate = mode => false;
+            // Off by default: wire == fill exactly, same "fused, invisible"
+            // baseline as before this feature existed. On: VV halves the
+            // wire color's RGB per part, giving a darker-tinted edge in the
+            // part's own severity hue instead of a flat, unrelated gray.
+            settings.wireColorDullDelegate = mode => wireframeEnabled;
             settings.boxColorDullDelegate = mode => false;
 
             return settings;
@@ -92,15 +113,24 @@ namespace VVEFIS
         private static IVViewMenu CreateMenu()
         {
             CustomModeSettings settings = BuildSettings();
-            // No configurable sub-items - selecting this menu entry is the
-            // whole interaction. The single inert label below is NOT
-            // decoration: VViewSimpleMenu.up()/down() on an EMPTY item array
-            // drive activeItemPos to -1, and a subsequent click() indexes
-            // menuItems[-1] - an IndexOutOfRangeException as soon as the
-            // player presses up/down/enter while on this menu page. One
-            // no-op item (click target null = stay put) makes every button
-            // safe.
-            IVVSimpleMenuItem[] items = { new VViewSimpleCustomMenuItem("MODE ACTIVE") };
+            // "MODE ACTIVE" is inert (click target null = stay put) - kept
+            // for the same safety reason as before (VViewSimpleMenu.up()/
+            // down() on an EMPTY item array drives activeItemPos to -1, and
+            // a subsequent click() indexes menuItems[-1] - an
+            // IndexOutOfRangeException). "WIREFRAME" is the real toggle
+            // (2026-09-01): VViewSimpleCustomMenuItem's own bool getter/
+            // setter constructor - VV renders its own "ON"/"OFF" suffix via
+            // ToString(), nothing to format here.
+            IVVSimpleMenuItem[] items =
+            {
+                new VViewSimpleCustomMenuItem("MODE ACTIVE"),
+                // Trailing space: VViewSimpleCustomMenuItem.ToString()
+                // appends ViewerConstants.boolAsString's "On"/"Off" directly
+                // after the label with no separator of its own (verified on
+                // the decompiled source - "WIREFRAME" + "On" == "WIREFRAMEOn"
+                // otherwise), confirmed in-game by the user.
+                new VViewSimpleCustomMenuItem("WIREFRAME ", () => wireframeEnabled, v => wireframeEnabled = v)
+            };
             VViewSimpleMenu menu = new VViewSimpleMenu(items, settings.name);
             menu.setCustomSettings(settings);
             return menu;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using UnityEngine;
 
 namespace MFDExtension.Shared
 {
@@ -157,6 +158,86 @@ namespace MFDExtension.Shared
                 }
             }
             return true;
+        }
+
+        // CAS mute-all (2026-08-30, RPM_MODULE/ButtonProcessor bridge - see
+        // src/Cas/MFDExtCasModule.cs): mirrors DangIt's own "Mute All" GUI
+        // button (Runtime/GUI/FailureStatusWindow.cs), which calls this
+        // exact method - AlarmManager.RemoveAllAlarms(), found via
+        // FindObjectOfType, same pattern DangIt itself uses everywhere to
+        // reach its own singleton. NOT a loop over FailureModule.MuteAlarms()
+        // (that mutes one module at a time, the part right-click action) -
+        // RemoveAllAlarms() clears every queued alarm in one call, silencing
+        // the sound only; it does not touch FailureState/ScreenName, so
+        // CAS's own list is unaffected (signal vs information, confirmed
+        // with the user 2026-08-30).
+        //
+        // Unlike CollectFailures above, there's no PartModule instance to
+        // read GetType() from - AlarmManager is a KSPAddon MonoBehaviour
+        // singleton, so its Type has to be found by searching the DangIt
+        // assembly itself. Matched by simple class name only (not a
+        // namespace-qualified "nsDangIt.AlarmManager") to tolerate a fork
+        // (DangItContinued) using a different namespace - same
+        // fork-tolerance philosophy as ModPresence's multi-candidate CLR
+        // names.
+        private static bool alarmManagerResolved;
+        private static Type alarmManagerType;
+        private static MethodInfo removeAllAlarmsMethod;
+
+        internal static void MuteAllAlarms()
+        {
+            if (!alarmManagerResolved)
+            {
+                alarmManagerResolved = true;
+                ResolveAlarmManager();
+            }
+
+            if (alarmManagerType == null || removeAllAlarmsMethod == null) return;
+
+            UnityEngine.Object instance = UnityEngine.Object.FindObjectOfType(alarmManagerType);
+            if (instance == null) return;
+
+            try
+            {
+                removeAllAlarmsMethod.Invoke(instance, null);
+            }
+            catch
+            {
+                // a throwing third-party method must not break our own button handling
+            }
+        }
+
+        private static void ResolveAlarmManager()
+        {
+            foreach (AssemblyLoader.LoadedAssembly loaded in AssemblyLoader.loadedAssemblies)
+            {
+                string name = loaded.assembly.GetName().Name;
+                if (name != "DangIt" && name != "DangItContinued") continue;
+
+                Type[] types;
+                try
+                {
+                    types = loaded.assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex)
+                {
+                    types = ex.Types; // some types can fail to load in a mod assembly; salvage the rest
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (Type type in types)
+                {
+                    if (type != null && type.Name == "AlarmManager")
+                    {
+                        alarmManagerType = type;
+                        removeAllAlarmsMethod = type.GetMethod("RemoveAllAlarms", BindingFlags.Public | BindingFlags.Instance);
+                        return;
+                    }
+                }
+            }
         }
 
         private static FailureFields? GetFailureFields(Type moduleType)
