@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.3.0
+
+- **CAS is now a full alerting page, not just a list.** Alerts are ordered by severity (WARNING, then CAUTION, then ADVISORY), so the most urgent ones are always what you see without touching anything, and the page scrolls with the monitor's own **Λ / V** keys (**O** jumps back to the top). When a tier doesn't fit, it shows what it can and marks the rest as `+N MORE`; tiers you haven't scrolled to yet collapse to a single `ADVISORY (6)` preview line rather than disappearing, so you always know they're there. A status line at the bottom gives the running total (`1-13 of 20`) and the key legend, meaning "nothing else to read" is now something the screen tells you explicitly, instead of something you have to infer.
+- **Mute DangIt's alarm from the cockpit**, with the monitor's own **x** key while CAS is up. Silences the aural warning for every current failure at once — the same call DangIt's own "Mute All" button makes — while leaving every alert on screen. Silencing the signal, not the information, the way a real master caution works.
+- **Long part titles scroll** instead of being cut off with an ellipsis, so a full name is eventually readable. Fault names sit in a fixed-width column, so titles all start at the same place instead of drifting line to line, and the longer ones use standard aeronautical abbreviations (`OVHT`, `RWA`, `CTL SRF`).
+- **The hub page reports its own version** at runtime instead of carrying a hardcoded string that silently went stale (it had been reading v0.1.0 through two releases).
+- **Two navigation fixes**: a hosted bay's *second* page is now recognized as part of the framework (RealBattery's fleet view was dropping you into MAS's own GRAPH page instead of back to its main screen), and `HOSTING.md` documents the registration step that caused it, so the next bay with a second page doesn't repeat it.
+
+### Extras/VVEFIS (optional; requires VesselView Continued)
+
+- **Wireframe toggle, switchable in flight** from the mode's own submenu, without leaving the live 3D view. Off by default (unchanged appearance); on, part edges are drawn in a darker shade of that same part's severity color, so the outline reinforces the reading instead of competing with it.
+
+### Extras/VVThermalMap (new, optional; requires VesselView Continued)
+
+- **New: "SHELL TEMP"**, a second custom VesselView color mode, independent of EFIS SEVERITY and of the rest of the framework (its own `VVThermalMap.dll`, delete it and nothing else changes). Colors every part by skin temperature on a continuous blue→cyan→green→yellow→red heat map: a physical floor at 3 K (cosmic background), an anchor at 300 K for the ordinary case, and above 60% / 80% of a part's own skin limit (the same thresholds SituationalAwareness uses for hull warnings), the curve accelerates into the danger band, so a part heading for destruction separates visibly from one that's merely warm. Reads the part's internal temperature too, but only once it's in its own danger band, and only if it's doing worse than the skin. Shares the same in-flight wireframe toggle as EFIS SEVERITY.
+
 ## v0.2.0
 
 - **New bay F: CAS (Crew Alerting System)**, a self-contained WARNING/CAUTION/ADVISORY fault summary. Reads DangIt failures (labeled by the specific fault name when known, e.g. "ALTERNATOR", falling back to the generic "FAILURE"), FAR stall warnings ("STALL"), and RealBattery malfunction states ("RUNAWAY"/"OVERHEAT"/"EOL"; end-of-life only, not charge level, which stays on bay B). All by reflection, no compile-time dependency on any of the three optional mods. Shows a "no fault sources detected" message if none are installed.
