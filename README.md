@@ -3,6 +3,8 @@
 An additive "second world" for an existing RasterPropMonitor / MOARdV's Avionics Systems (MAS) multi-function display, reachable with a button
 press, exitable the same way, without replacing, renaming, or otherwise disturbing anything the host IVA already does.
 
+![](https://i.imgur.com/2TC0QBV.jpeg)
+
 ## What it does
 
 - **A shared module bay inside an existing MFD**, not a new prop of its own: from the host's own home page, press NEXT or PREV (either one works) to enter.
