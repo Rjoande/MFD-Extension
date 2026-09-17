@@ -41,7 +41,7 @@ implementation exists but is unverified and archived — see
 | Button | Bay | Status |
 |---|---|---|
 | A | SA (SituationalAwareness) | hello-world (real design not built yet) |
-| B | BMS (RealBattery) | working — real per-vessel telemetry (L1) |
+| B | BMS (RealBattery) | working — 3-page cycle: EPS summary (L1) → per-vessel telemetry (L2) → fleet view (L3) |
 | C | FADEC (KRAB-9000) | hello-world (real design not built yet) |
 | D | SWC (KRILL) | hello-world (real design not built yet) |
 | E | ILS (NavInstruments) | bridged via `RPM_MODULE`, least battle-tested part of this release |
@@ -99,6 +99,18 @@ the "shared basket" rationale). Deliberately excludes fuel, generic engine
 condition, and RealBattery's own charge level (SC_SOC)/disabled flag (see
 `src/Cas/CasAggregator.cs` for the reasoning) — this is an alert list, not
 a full status dashboard.
+
+The page *layout* — scroll offset driven by the prop's own UP/DOWN/HOME
+keys, per-group expand/truncate/collapse (`+N MORE`, a collapsed
+`GROUP (N)` preview line for groups not yet reached), the bottom-anchored
+status line with `X-Y of N` and the key legend, marquee text for overlong
+titles — lives in `src/Pages/ScrollingListPage.cs`, a small UnityEngine-free
+engine shared by every text bay this repo ships (CAS today, the SystemHeat
+and DynamicBatteryStorage bays next). `CasAggregator` only collects the
+entries and renders one row each. If you build a bay of your own inside
+this repo, feed the engine a list of `ListGroup`s rather than re-deriving the
+row budget: this prop shows 40×20 (not the 40×32 MAS passes to a
+`textmethod`), and rows past the 20th are silently dropped.
 
 Two things make this bay different from A-E:
 
@@ -198,10 +210,10 @@ differently, re-verify before reusing this guide as-is elsewhere.
 By default, pressing a bay's own button while already on that bay's page
 does nothing (`MFDExt_Redirect` just leaves you where you are) — every
 *other* MFDExt page, and every host page, always jumps straight to your
-bay when that button is pressed. If your bay wants to reuse its own
-button for something else while it's already active — cycling your own
-sub-pages, the way some MAS/RPM screens already do — register a function
-in the shared override table, keyed by your bay's page name:
+bay's entry page when that button is pressed. If your bay wants to reuse
+its own button for something else while it's already active — cycling your
+own sub-pages, the way some MAS/RPM screens already do — register a
+function in the shared override table, keyed by the page it applies to:
 
 ```lua
 -- In your own MAS_LUA script (any file, any name - it shares the same
@@ -226,15 +238,60 @@ No override registered is the common case and is completely fine — the
 button will simply do nothing while you're already looking at your own
 page, exactly as if it weren't wired at all.
 
-**If your override jumps to a second page of your own** (like the
-`MFDExt_YourBay_Page2` example above), **add that page's name to
-`MFDExt_OwnPages` too**, not just your first one. Otherwise the button
-press that's supposed to bring you back (any *other* MFDExt page jumps
-straight to a button's own bay) won't recognize your second page as "one of
-ours", and falls through to that button's `hostFallback` instead — on
-BasicMFD that's often a completely unrelated host page. Found the hard way
-2026-08-30: RealBattery's own L2 fleet view jumped to MAS's GRAPH page
-instead of back to L1 until its name was added.
+**If your override jumps to a second page of your own, add that page's
+name to `MFDExt_OwnPages` too**, not just your entry page. Otherwise the
+button press that's supposed to bring you back (any *other* MFDExt page
+jumps straight to a button's own bay) won't recognize your second page as
+"one of ours", and falls through to that button's `hostFallback` instead —
+on BasicMFD that's often a completely unrelated host page. Found the hard
+way 2026-08-30: RealBattery's own second page jumped to MAS's GRAPH page
+instead of back to the entry page until its name was added.
+
+### Chaining through three or more of your own pages
+
+A single override on your entry page is enough for a two-page toggle (press
+B: go deeper; press B again from anywhere else: come back — this was the
+whole mechanism for RealBattery's bay until 2026-09-15). It stops being
+enough once you want a real forward cycle across three or more pages
+(L1 → L2 → L3 → L1), because the default fallback ("any other page of ours
+→ snap straight back to the entry page") can't tell "L2 of MY OWN bay,
+continue forward" from "some other bay's page, jump to my entry page" — both
+just look like "some page in the global `MFDExt_OwnPages` set that isn't my
+`ownPage`".
+
+For that, pass a **4th argument to `MFDExt_Redirect`**: a set of every page
+belonging to your bay (entry page included). When present, `MFDExt_Redirect`
+consults `current`'s own override — not just the entry page's — whenever
+`current` is a member of that set, so each of your pages can define where
+the SAME button takes you next:
+
+```lua
+local MFDExt_YourBay_Pages = {
+	["MFDExt_YourBay"] = true,       -- entry page (ownPage)
+	["MFDExt_YourBay_Page2"] = true,
+	["MFDExt_YourBay_Page3"] = true,
+}
+
+function MFDExt_ButtonX(monitorID)
+	MFDExt_Redirect(monitorID, "MFDExt_YourBay", function(id)
+		fc.SetPersistent(id, "SomeHostPage")
+	end, MFDExt_YourBay_Pages)
+end
+```
+
+```lua
+MFDExt_OwnButtonOverrides["MFDExt_YourBay"]       = function(id) fc.SetPersistent(id, "MFDExt_YourBay_Page2") end
+MFDExt_OwnButtonOverrides["MFDExt_YourBay_Page2"] = function(id) fc.SetPersistent(id, "MFDExt_YourBay_Page3") end
+MFDExt_OwnButtonOverrides["MFDExt_YourBay_Page3"] = function(id) fc.SetPersistent(id, "MFDExt_YourBay") end -- wrap
+```
+
+Omitting the 4th argument is completely safe for every bay that only has
+one page (still most of them) — `MFDExt_Redirect` falls back to comparing
+`current == ownPage` exactly as it always did, byte-for-byte the old
+behavior. Every page you list still needs its own entry in `MFDExt_OwnPages`
+too, same rule as the two-page case above. See `MFDExt_ButtonB` in
+`Scripts/MFDExt.lua` for a real, working three-page example (RealBattery's
+BMS bay: EPS summary → per-vessel telemetry → fleet view → back to EPS).
 
 ## Not-detected placeholder
 
@@ -371,8 +428,8 @@ way.
 ## Status of this release
 
 The hub, navigation, ILS, and CAS all have real functionality, and so does
-BMS (RealBattery) — real per-vessel telemetry (its L1 content), not just a
-hello-world. SA, FADEC, and SWC ship only a hello-world confirmation page
+BMS (RealBattery) — a real 3-page cycle (EPS summary, per-vessel telemetry,
+fleet view), not just a hello-world. SA, FADEC, and SWC ship only a hello-world confirmation page
 from their own repositories so far (end-to-end proof that registration +
 button routing + content all work) — their actual designed content lands
 whenever each one is ready, following the "adding a new bay" recipe above;

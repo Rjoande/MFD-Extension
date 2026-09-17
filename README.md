@@ -17,25 +17,26 @@ press, exitable the same way, without replacing, renaming, or otherwise disturbi
 | Bay | Mod | Status |
 |---|---|---|
 | A | [Situational Awareness](https://github.com/Rjoande/SituationalAwareness) | hello-world (real design not built yet) |
-| B | [Real Battery](https://github.com/Rjoande/RealBattery) | working — real per-vessel telemetry |
+| B | [Real Battery](https://github.com/Rjoande/RealBattery) | working — 3-page cycle: EPS summary, per-vessel telemetry, fleet view |
 | C | [KRAB-9000](https://github.com/Rjoande/KRAB) | hello-world (real design not built yet) |
 | D | [KRILL](https://github.com/Rjoande/KRILL) | hello-world (real design not built yet) |
 | E | [NavInstruments](https://github.com/net-lisias-kspu/NavInstruments/releases)* | working |
 | F | CAS (built in) | working† |
 
 > *bridges its own HSI/ILS display, rescued from patches that go silently dead on any install where Avionics Systems promotes RasterPropMonitor screens to its own equivalent
-> †a textual WARNING/CAUTION/ADVISORY fault summary, self-contained (not a hosted mod's bay) — reads DangIt, FAR, and RealBattery (runaway/overheat/end-of-life only, not charge level — that's still Real Battery's own bay B) by reflection if any is installed, otherwise shows a "no fault sources" message. Scrolls with the monitor's own Λ/V/O keys; **x** mutes DangIt's aural alarm from the cockpit without clearing anything from the screen.
+> †a textual WARNING/CAUTION/ADVISORY fault summary, self-contained (not a hosted mod's bay) — reads DangIt, FAR, and RealBattery (runaway/overheat/end-of-life only, not charge level — that's still Real Battery's own bay B) by reflection if any is installed, otherwise shows a "no fault sources" message. Scrolls with the monitor's own ▲/▼/○ keys; **x** mutes DangIt's aural alarm from the cockpit without clearing anything from the screen.
 
 ## Extras (optional)
 
-Two custom colour modes for [VesselView Continued](https://github.com/linuxgurugamer/VesselView), installed alongside it without patching any of its files. Each ships as its own DLL under `Extras/` — delete either folder and nothing else changes. Both are unrelated to the MFD bays above and require VesselView; the rest of the framework does not.
+Three custom colour modes for [VesselView Continued](https://github.com/linuxgurugamer/VesselView), installed alongside it without patching any of its files. Each ships as its own DLL under `Extras/` — delete any folder and nothing else changes. All three are unrelated to the MFD bays above and require VesselView; the rest of the framework does not.
 
 | Mode | What it shows |
 |---|---|
 | **EFIS SEVERITY** | Every part on the same WARNING/CAUTION/ADVISORY severity scale CAS uses, replacing VesselView's own STATE-mode colours. A pulsing red border marks genuine malfunctions, separately from mere depletion (an empty tank, a flamed-out engine), which get colour only. |
 | **SHELL TEMP** | Every part by skin temperature, on a continuous blue→cyan→green→yellow→red heat map that accelerates into the danger band above 60%/80% of that part's own skin limit. |
+| **HOLO** | A sci-fi holographic look instead of a diagnostic readout: parts are cobalt blue with a light-blue wireframe by default. Only WARNING/CAUTION parts get distinct treatment (fill and wireframe turn red, the outline breathes); everything else stays visually nominal. Engine icons are suppressed — their colours are hardcoded with no public hook to recolour them to match. |
 
-Both offer a wireframe toggle, switchable in flight from their own submenu without leaving the 3D view.
+EFIS SEVERITY and SHELL TEMP offer a wireframe toggle, switchable in flight from their own submenu without leaving the 3D view; HOLO's wireframe is always on, nothing to toggle.
 
 ## Requirements
 

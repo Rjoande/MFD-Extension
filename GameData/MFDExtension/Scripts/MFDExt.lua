@@ -17,14 +17,15 @@
 local MFDExt_OwnPages = {
 	["MFDExt_Stby"] = true,
 	["MFDExt_SA_Placeholder"] = true,
+	-- RealBattery's own three-page cycle (EPS -> per-vessel telemetry ->
+	-- fleet view -> EPS, see MFDExt_ButtonB below and HOSTING.md's
+	-- "Overriding your own button"). All three must be listed here, not
+	-- just the entry page: without an entry, that page doesn't count as
+	-- "already one of our own" and a button press from it falls through to
+	-- a host page instead of continuing/closing the cycle - bug found and
+	-- fixed for the 2-page version 2026-08-30, same rule extended here.
+	["MFDExt_BATT_EPS"] = true,
 	["MFDExt_BATT"] = true,
-	-- RealBattery's own L2 sub-page (see MFDExt_BATT_Nav.lua in its repo,
-	-- and HOSTING.md's "Overriding your own button") - pressing B while on
-	-- MFDExt_BATT jumps here via MFDExt_OwnButtonOverrides, but without
-	-- THIS registration too, pressing B again from here doesn't count as
-	-- "already on one of our own pages" and falls through to the host's own
-	-- native fallback (MAS's GRAPH page) instead of back to MFDExt_BATT -
-	-- bug found and fixed 2026-08-30.
 	["MFDExt_BATT_Fleet"] = true,
 	["MFDExt_KRAB_Placeholder"] = true,
 	["MFDExt_KRILL_Placeholder"] = true,
@@ -33,18 +34,40 @@ local MFDExt_OwnPages = {
 	["MFDExt_CAS"] = true,
 }
 
--- Hosted bays may register a function here, keyed by their own page name,
--- to override what their own button does while their own page is already
--- active (default: nothing happens). Defensive lazy-init here AND in any
--- hosting mod's own script, since MAS_LUA scripts on the same prop all run
--- into one shared global environment but in unspecified order - see
--- HOSTING.md.
+-- Hosted bays may register a function here, keyed by a page name, to
+-- override what a button does while that exact page is already active
+-- (default: nothing happens). Defensive lazy-init here AND in any hosting
+-- mod's own script, since MAS_LUA scripts on the same prop all run into one
+-- shared global environment but in unspecified order - see HOSTING.md.
 MFDExt_OwnButtonOverrides = MFDExt_OwnButtonOverrides or {}
 
-local function MFDExt_Redirect(monitorID, ownPage, hostFallback)
+-- `ownPages` (optional, 4th arg) is a set of every page belonging to this
+-- bay, ownPage included - added 2026-09-15 so a bay can chain through MORE
+-- than two pages of its own with the same button (see MFDExt_ButtonB
+-- below). Omitted, behavior is IDENTICAL to before this parameter existed:
+-- `mine` reduces to `current == ownPage`, so every single-page bay (still
+-- most of them) needs no changes.
+--
+-- The key move from the old two-page version: instead of "if current is
+-- ownPage, maybe call an override; if current is ANY other page of ours,
+-- unconditionally snap back to ownPage", `current`'s OWN override is
+-- consulted whenever `current` belongs to THIS bay, regardless of which of
+-- the bay's pages it is - so a bay can register a distinct override on
+-- each of its pages and chain through them in order. A bay page with no
+-- override registered on it (a dead end, or simply not implemented yet)
+-- does nothing when the button is pressed there, same as ownPage always did.
+--
+-- This intentionally does NOT change cross-bay behavior: a DIFFERENT
+-- button's own MFDExt_Redirect call never sees this bay's `ownPages` set
+-- (each button only ever passes its own), so pressing button A while
+-- sitting on any BATT page still takes the plain "jump to bay A" branch
+-- below - only button B, the one bay B actually owns, ever consults BATT's
+-- own override chain.
+local function MFDExt_Redirect(monitorID, ownPage, hostFallback, ownPages)
 	local current = fc.GetPersistent(monitorID)
-	if current == ownPage then
-		local override = MFDExt_OwnButtonOverrides[ownPage]
+	local mine = (ownPages and ownPages[current]) or (current == ownPage)
+	if mine then
+		local override = MFDExt_OwnButtonOverrides[current]
 		if override then
 			override(monitorID)
 		end
@@ -73,10 +96,25 @@ end
 -- the host's own onClick sends "MAS_JSI_BasicMFD_Graphs" (missing "B_"),
 -- which was never a registered page name - our override supplies the
 -- correct target as its "host" branch. See CLAUDE.md 2026-08-14.
+--
+-- Three-page cycle (2026-09-15, CLAUDE.md log 82): MFDExt_BATT_EPS (a
+-- vessel-wide EPS summary, the NEW entry page - so every OTHER MFDExt page
+-- and every host page still land here first) -> MFDExt_BATT (per-vessel
+-- telemetry, the bay's original L1) -> MFDExt_BATT_Fleet (fleet view) ->
+-- back to MFDExt_BATT_EPS. The three fc.SetPersistent calls that actually
+-- drive the chain live in RealBattery's own script, keyed by page name in
+-- the shared MFDExt_OwnButtonOverrides table - this function only has to
+-- list which pages belong to this bay.
+local MFDExt_BATT_Pages = {
+	["MFDExt_BATT_EPS"] = true,
+	["MFDExt_BATT"] = true,
+	["MFDExt_BATT_Fleet"] = true,
+}
+
 function MFDExt_ButtonB(monitorID)
-	MFDExt_Redirect(monitorID, "MFDExt_BATT", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_BATT_EPS", function(id)
 		fc.SetPersistent(id, "MAS_JSI_BasicMFD_B_Graphs")
-	end)
+	end, MFDExt_BATT_Pages)
 end
 
 -- Button C ("KRAB" in our label row).

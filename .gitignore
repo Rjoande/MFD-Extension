@@ -1,4 +1,4 @@
-# Build artifacts (Directory.Build.props already redirects obj/bin outside
+﻿# Build artifacts (Directory.Build.props already redirects obj/bin outside
 # this folder, onto C:, for exFAT reasons — these entries are just a safety
 # net in case that ever changes, or for anyone building without that props file).
 src/obj/
@@ -9,6 +9,7 @@ src/.vs/
 # the Claude Code project hub — not part of the shipped mod, kept local only.
 notes/
 CLAUDE.md
+ReleaseNote.md
 
 # Texture working files: only the exported .png ships with the mod.
 GameData/MFDExtension/Textures/*.psd
@@ -16,3 +17,7 @@ GameData/MFDExtension/Textures/*.psd
 # OS/editor cruft
 .DS_Store
 Thumbs.db
+
+# Packaged release archives — built from the tracked source, not source
+# themselves; distributed via GitHub Releases, not the repo tree.
+*.zip

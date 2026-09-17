@@ -4,9 +4,9 @@
     <!-- KSP 1.12.5 runs Unity 2019.4 / Mono: target .NET Framework 4.7.2 -->
     <TargetFramework>net472</TargetFramework>
     <LangVersion>8.0</LangVersion>
-    <AssemblyName>VVEFIS</AssemblyName>
-    <RootNamespace>VVEFIS</RootNamespace>
-    <Version>0.3.1</Version>
+    <AssemblyName>VVEFISWF</AssemblyName>
+    <RootNamespace>VVEFISWF</RootNamespace>
+    <Version>0.2.0</Version>
     <DebugType>none</DebugType>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
@@ -17,20 +17,24 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Source-linked shared basket (2026-08-24 refactor, see
+    <!-- Source-linked shared basket (same pattern as VVEFIS.csproj, see
          src/Shared/DangItBridge.cs header for the rationale): DangIt/FAR/
-         RealBattery readers, the Tier scale, and mod-presence checks are
-         compiled INTO this DLL from MFDExtension's own src/Shared/ - no
-         extra runtime DLL, VVEFIS stays independently promotable to a
-         standalone mod (it just needs to keep carrying these few files). -->
+         RealBattery readers, the Tier scale, mod-presence checks, AND (as of
+         2026-09-01) the EFIS severity computation itself (VVEFISSeverity.cs)
+         are compiled INTO this DLL from MFDExtension's own src/Shared/ - no
+         runtime dependency on VVEFIS.dll, so this "EFIS WF" twin stays a
+         physically separate, independently uninstallable plugin (delete this
+         whole Extras/VVEFISWF/ folder and VVEFIS/EFIS SEVERITY keeps working
+         untouched, and vice versa) while computing the EXACT same tier/color
+         logic as its sibling instead of a copy-pasted, driftable one. -->
     <Compile Include="..\..\..\src\Shared\*.cs">
       <Link>Shared\%(Filename)%(Extension)</Link>
     </Compile>
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Stock KSP/Unity references. Extras/VVEFIS/src is 5 levels below the KSP
-         install root (Extras\VVEFIS\src\ -> MFDExtension\ -> GameData\ -> root). -->
+    <!-- Stock KSP/Unity references. Extras/VVEFISWF/src is 5 levels below the
+         KSP install root (Extras\VVEFISWF\src\ -> MFDExtension\ -> GameData\ -> root). -->
     <Reference Include="Assembly-CSharp">
       <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
@@ -44,11 +48,8 @@
       <Private>false</Private>
     </Reference>
     <!-- VesselView/VesselViewRPM: the whole point of this satellite, a real (not
-         reflection-based) dependency - see VVEFISAddon.cs for why touching these
-         types is still guarded behind a runtime AssemblyLoader check. DangIt, by
-         contrast, is read purely by reflection (see DangItBridge.cs) since it's
-         genuinely optional and this project's convention is to avoid a hard
-         reference to an optional dependency's assembly. -->
+         reflection-based) dependency - see VVEFISWFAddon.cs for why touching
+         these types is still guarded behind a runtime AssemblyLoader check. -->
     <Reference Include="VesselView">
       <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\VesselView\Plugins\VesselView.dll</HintPath>
       <Private>false</Private>
@@ -63,11 +64,11 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Deploy the plugin DLL into MFDExtension's own Extras/ payload area, not
-       Plugins/ (that one is reserved for a possible future MFDExtension.dll
-       itself - see CLAUDE.md). -->
+  <!-- Deploy into its OWN payload folder, sibling to (not inside) Extras/VVEFIS/ -
+       a separate DLL in a separate folder, so the player can delete this one
+       and keep the solid-fill mode, or vice versa. -->
   <Target Name="DeployToGameData" AfterTargets="Build">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\..\..\..\GameData\MFDExtension\Extras\VVEFIS\" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MSBuildProjectDirectory)\..\..\..\GameData\MFDExtension\Extras\VVEFISWF\" />
   </Target>
 
 </Project>
