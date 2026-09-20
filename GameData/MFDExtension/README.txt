@@ -1,4 +1,4 @@
-MFD EXTENDED  v0.4.0
+MFD EXTENDED  v0.4.1
 ====================
 
 An additive "second world" for an existing RasterPropMonitor / MOARdV's

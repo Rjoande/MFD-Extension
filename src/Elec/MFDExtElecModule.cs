@@ -2,23 +2,18 @@ namespace MFDExtension.Elec
 {
     // MAS companion module for the ELEC bay (R3) - DynamicBatteryStorage's
     // electrical ledger on three pages. Registered as a sibling MODULE on
-    // MAS_JSI_BasicMFD (Config/Additive/MAS_BasicMFD.cfg section 7), same
-    // "manual companion MODULE" pattern as MFDExtCasModule - read that file
-    // for why this must be an InternalModule and for the textmethod /
-    // RPM_MODULE signatures (both verified on MAS's real source).
+    // MAS_JSI_BasicMFD (MAS_BasicMFD.cfg section 7); see MFDExtCasModule for
+    // why this must be an InternalModule and for the method signatures.
     //
-    // ONE module serves all three pages: each page's TEXT node names its own
-    // textmethod and each page's RPM_MODULE names its own buttonClickMethod
-    // (the method name is free-form cfg, exactly like NavInstruments'
-    // ButtonProcessor), which is what lets every page keep its own scroll
-    // offset while sharing one ledger mode.
+    // ONE module serves all three pages: each names its own textmethod and its
+    // own buttonClickMethod (both free-form in cfg), which is what gives every
+    // page its own scroll offset while they share one ledger mode.
     public class MFDExtElecModule : InternalModule
     {
-        // Physical button ids, see MAS_JSI_BasicMFD.cfg's right-column
-        // comment (UP 0, DOWN 1, ENTER 2, ESC 3, HOME 4). Configurable from
-        // the cfg like CAS's, defaulting to the real ids.
+        // Physical button ids, see MAS_JSI_BasicMFD.cfg's right-column comment.
+        // Configurable from the cfg, defaulting to the real ids.
         [KSPField]
-        public int buttonMode = 2;  // button_ENTER, the green left arrow (user's call 2026-09-17; first bound to ESC/3)
+        public int buttonMode = 2;  // button_ENTER, the green left arrow
         [KSPField]
         public int buttonUp = 0;
         [KSPField]

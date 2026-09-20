@@ -5,33 +5,23 @@ using UnityEngine;
 
 namespace MFDExtension.Shared
 {
-    // THE single DangIt reader for this whole project (2026-08-24 "shared
-    // basket" refactor) - previously two hand-synced copies (src/Cas/ and
-    // Extras/VVEFIS/src/) that had already diverged twice: CAS grew
-    // CollectFailures+ScreenName (log 42) and the unrecognized-Priority
-    // default (log 43) while VVEFIS kept neither. This file is compiled
-    // into BOTH DLLs by source-linking (each csproj includes it), so there
-    // is no third runtime DLL and no new load-order dependency - CAS stays
-    // VesselView-free, VVEFIS stays promotable to a standalone mod.
+    // The DangIt reader for the whole project, source-linked into every DLL
+    // that needs it rather than duplicated (the two old copies had drifted).
     //
-    // DangIt exposes zero RPM/MAS/public API - but its FailureModule base
-    // class (Failure_modules/FailureModule.cs in DangIt's own source) has
-    // plain PUBLIC members we can read: HasFailed (bool), Priority (string,
-    // "HIGH"/"MEDIUM"/"LOW" - a severity concept DangIt already has,
-    // verified against every ModuleManager patch that sets it),
-    // alarmDisabled (bool, DangIt's own player-acknowledgement flag), and
-    // ScreenName (get-only string property, "Alternator"/"Gimbal"...).
-    // Read by duck-typed reflection, not a hard reference to
-    // DangItContinued.dll - the project-wide "no compile-time dependency on
-    // an optional mod" convention. Degrades to "no failure" silently if
-    // DangIt isn't installed, or if a future DangIt renames these members.
+    // DangIt exposes no public API, but its FailureModule base class has plain
+    // public members: HasFailed, Priority, alarmDisabled and the ScreenName
+    // property. Read by duck-typed reflection, no compile-time dependency on
+    // an optional mod; degrades silently to "no failure".
     internal static class DangItBridge
     {
         internal readonly struct FailureInfo
         {
-            internal readonly string Priority; // "HIGH" / "MEDIUM" / "LOW" as set by DangIt's cfgs; the C# default is the raw tag "#LOC_DangIt_68" (= MEDIUM in en-us), and a localized install may carry a translated value - callers must NOT drop an unrecognized string, see MapPriorityToTier
+            // "HIGH"/"MEDIUM"/"LOW" as set by DangIt's cfgs, but its own C#
+            // default is a raw #LOC tag and a localized install carries a
+            // translated string - see MapPriorityToTier, never drop one.
+            internal readonly string Priority;
             internal readonly bool Acknowledged; // DangIt's own alarmDisabled on this module
-            internal readonly string Name; // DangIt's ScreenName property ("Alternator", "Gimbal"...), null if unreadable
+            internal readonly string Name; // ScreenName ("Alternator", "Gimbal"...), null if unreadable
 
             internal FailureInfo(string priority, bool acknowledged, string name)
             {
@@ -46,25 +36,16 @@ namespace MFDExtension.Shared
             internal FieldInfo HasFailed;
             internal FieldInfo Priority;
             internal FieldInfo AlarmDisabled;
-            internal PropertyInfo ScreenName; // abstract get-only PROPERTY on FailureModule, not a field - may be null if a future DangIt drops it (tolerated: Name comes back null)
+            internal PropertyInfo ScreenName; // get-only PROPERTY, not a field; null tolerated (Name comes back null)
         }
 
-        // Per-Type field-lookup cache - avoids repeating GetField() for every
-        // part on every render pass. null entry = "this module type isn't a
-        // DangIt failure module", cached too so we don't re-check every time.
+        // Per-Type lookups, cached across render passes; a null entry means
+        // "not a DangIt failure module" and is cached too.
         private static readonly Dictionary<Type, FailureFields?> fieldCache = new Dictionary<Type, FailureFields?>();
 
-        // Maps DangIt's Priority string to the shared severity scale. The
-        // default branch is deliberate and load-bearing (log 43): DangIt's
-        // own C# default for Priority is the raw localization tag
-        // "#LOC_DangIt_68" (= MEDIUM in en-us, verified in the local DangIt
-        // source and Localization/en-us.cfg), and a localized install
-        // carries a translated string entirely. A severity channel must
-        // never silently drop a real failure over a label it doesn't
-        // recognize - anything not clearly HIGH or LOW maps to Caution,
-        // matching what that default means. (Unifying this closed a real
-        // gap: the old VVEFIS copy returned "no status" for unrecognized
-        // strings, hiding the failure from the 3D view.)
+        // The default branch is load-bearing: anything not clearly HIGH or LOW
+        // maps to Caution instead of being dropped, because DangIt's own C#
+        // default is a raw #LOC tag (MEDIUM) and localized installs differ.
         internal static Tier MapPriorityToTier(string priority)
         {
             switch (priority)
@@ -75,13 +56,9 @@ namespace MFDExtension.Shared
             }
         }
 
-        // Appends one FailureInfo per FAILED DangIt module on this part - a
-        // part can carry more than one failure module (e.g. an engine has both
-        // its own failure and, separately, a gimbal failure), each capable of
-        // failing independently. CAS lists each as its own alert line
-        // (first in-game test 2026-08-23: worst-wins-per-part undercounted
-        // exactly this case); VVEFIS reduces the list to the worst via
-        // TryGetWorstFailure below (one part = one fill color).
+        // One FailureInfo per FAILED module on this part: a part can carry
+        // several failure modules failing independently (an engine has its own
+        // plus a gimbal one). CAS lists each, VVEFIS reduces to the worst.
         internal static void CollectFailures(Part part, List<FailureInfo> results)
         {
             foreach (PartModule module in part.Modules)
@@ -131,8 +108,7 @@ namespace MFDExtension.Shared
             }
         }
 
-        // Reused across frames by TryGetWorstFailure - single-threaded like
-        // everything else on the prop, keep per-call garbage down.
+        // Reused across frames; everything on the prop is single-threaded.
         private static readonly List<FailureInfo> worstBuffer = new List<FailureInfo>();
 
         // The worst-wins reduction VVEFIS needs (one part = one fill color):
@@ -160,26 +136,13 @@ namespace MFDExtension.Shared
             return true;
         }
 
-        // CAS mute-all (2026-08-30, RPM_MODULE/ButtonProcessor bridge - see
-        // src/Cas/MFDExtCasModule.cs): mirrors DangIt's own "Mute All" GUI
-        // button (Runtime/GUI/FailureStatusWindow.cs), which calls this
-        // exact method - AlarmManager.RemoveAllAlarms(), found via
-        // FindObjectOfType, same pattern DangIt itself uses everywhere to
-        // reach its own singleton. NOT a loop over FailureModule.MuteAlarms()
-        // (that mutes one module at a time, the part right-click action) -
-        // RemoveAllAlarms() clears every queued alarm in one call, silencing
-        // the sound only; it does not touch FailureState/ScreenName, so
-        // CAS's own list is unaffected (signal vs information, confirmed
-        // with the user 2026-08-30).
+        // Mirrors DangIt's own "Mute All" GUI button, which calls this same
+        // AlarmManager.RemoveAllAlarms(): it silences every queued alarm at
+        // once and never touches failure state, so CAS's list is unaffected.
         //
-        // Unlike CollectFailures above, there's no PartModule instance to
-        // read GetType() from - AlarmManager is a KSPAddon MonoBehaviour
-        // singleton, so its Type has to be found by searching the DangIt
-        // assembly itself. Matched by simple class name only (not a
-        // namespace-qualified "nsDangIt.AlarmManager") to tolerate a fork
-        // (DangItContinued) using a different namespace - same
-        // fork-tolerance philosophy as ModPresence's multi-candidate CLR
-        // names.
+        // No PartModule to take a Type from here - AlarmManager is a KSPAddon
+        // singleton, so its Type is searched for in the assembly by simple
+        // class name, which keeps a fork with its own namespace matching.
         private static bool alarmManagerResolved;
         private static Type alarmManagerType;
         private static MethodInfo removeAllAlarmsMethod;

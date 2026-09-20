@@ -13,12 +13,9 @@ namespace MFDExtension.Tcs
     //   L1 MFDExt_TCS           - TCS SUMMARY, static: totals, one row per loop, reactor/cryo/sink counts
     //   L2 MFDExt_TCS_Loops     - one scrollable group per heat loop, its members as the "overlay" in text
     //   L3 MFDExt_TCS_Reactors  - one 4-row block per reactor (fission, then FFT fusion)
-    // Design closed with the user on 2026-09-16 (survey section 4.2) and
-    // 2026-09-18 (proposal approved as a whole); CLAUDE.md log 89.
     //
     // Colors follow SystemHeat's OWN code, the same principle ELEC applies to
-    // DBS's net flow (verified on ToolbarPanelLoopWidget / ReactorWidget /
-    // the Engineer's Report tests, 0.9.1):
+    // DBS's net flow:
     //  - loop flux text: amber when NetFlux > 0, green otherwise;
     //  - NOMINAL green; HEATING amber (NetFlux > 0.05 with T <= Tnom + 0.5,
     //    the panel's amber pulsing border); OVERTEMP red (T >= Tnom + 0.5, its
@@ -56,9 +53,8 @@ namespace MFDExtension.Tcs
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         // ---- snapshot ---------------------------------------------------------
-        // The 0.25 s reflection cache lives in SystemHeatReader since
-        // 2026-09-19 (log 90), shared with CAS's thermal entries; only the
-        // rendered-text caches below are this file's own.
+        // The 0.25 s reflection cache lives in SystemHeatReader, shared with
+        // CAS; only the rendered-text caches below are this file's own.
         private static SystemHeatSnapshot GetSnapshot(Vessel vessel)
         {
             return SystemHeatReader.GetSnapshot(vessel);
@@ -422,9 +418,8 @@ namespace MFDExtension.Tcs
             return view;
         }
 
-        // Exactly ReactorRows rows, on a fixed grid (user's request after the
-        // first in-game test, 2026-09-19: values start on one column, second
-        // labels on another):
+        // Exactly ReactorRows rows on a fixed grid, so values line up under
+        // values and second labels under second labels:
         //   col 2  label (6 wide)   col 8  value (12 wide)   col 20  label (5)   col 25  value (5)   col 30  INTEG
         //   MX-1 'Garnet' Fission Reactor         ON     title (marquee) + status, right-flushed, colored
         //     PWR   120 Ec/s    HEAT 900 kW

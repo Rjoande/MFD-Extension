@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.1
+
+- **Fixed: black screen on installs without RealBattery.** The BMS bay's fallback page was renamed in v0.3.1 but its registration with the host monitor was not, so the monitor was told about a page that did not exist and failed to configure, taking every page of every BasicMFD in the IVA down with it. Installs with RealBattery were never affected.
+
 ## v0.4.0
 
 - **New bay R3: ELEC**, the vessel's electrical ledger read from DynamicBatteryStorage, on three pages.

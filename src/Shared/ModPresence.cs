@@ -1,23 +1,13 @@
 namespace MFDExtension.Shared
 {
-    // THE single "is mod X installed?" check for this project (2026-08-24
-    // "shared basket" refactor). Compares the CLR assembly name
-    // (assembly.GetName().Name), NEVER AssemblyLoader.LoadedAssembly.name:
-    // the latter holds the KSPAssembly attribute's declared name when one
-    // is present, which can be shared across multiple physically different
-    // DLLs - the exact bug that made VVEFIS invisible on its first in-game
-    // test (all five VesselView Continued DLLs declare KSPAssembly
-    // "VesselViewerContinued", see CLAUDE.md log 41). The CLR name is
-    // per-DLL and is also what compile-time references bind to.
-    //
-    // Accepts multiple candidate names because the same mod ships under
-    // different assembly names across forks/eras: DangIt's classic DLL is
-    // "DangIt", the linuxgurugamer Continued fork's is "DangItContinued"
-    // (the user's real install carries the latter, confirmed 2026-08-24;
-    // this workspace's copy declares no KSPAssembly attribute at all,
-    // verified on the DLL's raw metadata).
+    // "Is mod X installed?" for the whole project. Compares the CLR assembly
+    // name, NEVER AssemblyLoader.LoadedAssembly.name: that one holds the
+    // KSPAssembly attribute, which a mod may stamp on several of its DLLs
+    // alike (all five VesselView Continued DLLs share one).
     internal static class ModPresence
     {
+        // Several candidates because forks rename the assembly ("DangIt" vs
+        // "DangItContinued").
         internal static bool IsLoaded(params string[] clrAssemblyNames)
         {
             foreach (AssemblyLoader.LoadedAssembly loaded in AssemblyLoader.loadedAssemblies)

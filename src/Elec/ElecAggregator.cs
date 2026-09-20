@@ -19,13 +19,9 @@ namespace MFDExtension.Elec
     //   L1 MFDExt_ELEC          - ELEC SUMMARY, static
     //   L2 MFDExt_ELEC_Sources  - per-category list of what feeds the bus
     //   L3 MFDExt_ELEC_Loads    - per-category list of what draws from it
-    // Design closed with the user on 2026-09-16/17, notes/survey-bays-
-    // systemheat-dbs.md section 4.1 and 4.1-bis; CLAUDE.md log 88.
     //
-    // TWO LEDGER MODES, switched live with the monitor's ENTER key - the green
-    // left-pointing arrow, softkey id 2 (per monitor, not persisted - the
-    // user's request, 2026-09-17; first bound to the red "x", moved to ENTER
-    // on the user's call the same day):
+    // TWO LEDGER MODES, switched live with the monitor's ENTER key (the green
+    // left arrow, softkey id 2); per monitor, not persisted:
     //  - PLANT (default): the DBS "Batteries" category (RealBattery packs,
     //    NFE discharge capacitors) is kept OUT of NET FLOW / GENERATED /
     //    CONSUMED and shown on its own STORAGE row. Why this is the default:
@@ -38,10 +34,9 @@ namespace MFDExtension.Elec
     // With no storage handler on the vessel the two modes are the same
     // numbers, and neither the mode tag nor the key hint is shown.
     //
-    // Boundary with the BMS bay (RealBattery), decided 2026-09-16: when both
-    // mods are installed EXP TIME lives on BMS only and EC LEVEL on ELEC only;
-    // ELEC therefore hides EXP TIME as soon as RealBattery is detected.
-    // Colors never depend on which mods are installed.
+    // Boundary with the BMS bay: with both mods installed EXP TIME lives on
+    // BMS only and EC LEVEL on ELEC only, so ELEC hides EXP TIME as soon as
+    // RealBattery is detected. Colors never depend on what is installed.
     internal static class ElecAggregator
     {
         private const string GreenTag = "[#00FF00FF]";
@@ -52,7 +47,7 @@ namespace MFDExtension.Elec
         private const string ResetTag = ScrollingListPage.ResetColorTag;
 
         // EC LEVEL thresholds: RealBattery's RESERVE ones (one key away on
-        // BMS), not DBS's own 25 % - user's decision 2026-09-16.
+        // the BMS bay), not DBS's own 25 %.
         private const double EcCautionFraction = 0.10;
         private const double EcWarningFraction = 0.01;
 
@@ -62,15 +57,9 @@ namespace MFDExtension.Elec
         private const int TopLoads = 3;
         private const int TopSources = 2;
 
-        // The mode key's hint: a green U+2190 LEFTWARDS ARROW, matching the
-        // green arrow drawn on the physical ENTER key in game (user's call
-        // 2026-09-18, over the U+25C4 triangle first used here). UNVERIFIED
-        // in the monitor's font at the time of writing: no page in this
-        // install uses U+2190, whereas MAS's own pages do draw U+25C4
-        // (MOARdV/MFD/*.cfg, 14 files) - if the arrow shows as a box, U+25C4
-        // is the known-good fallback. The tags make the raw string longer
-        // than what shows: always measure it with
-        // ScrollingListPage.VisibleLength.
+        // The mode key's hint: a green U+2190 arrow, matching the green arrow
+        // drawn on the physical ENTER key. Its color tags make the raw string
+        // longer than what shows - always measure it with VisibleLength.
         private const string ModeLegend = GreenTag + "\u2190" + ResetTag + ": mode";
         private const string ListLegendWithMode = ModeLegend + "  " + ScrollingListPage.KeyLegend;
 
@@ -183,7 +172,7 @@ namespace MFDExtension.Elec
                     view.Count += entries.Count;
                     view.Idle += side == ElecSide.Sources ? category.IdleSources : category.IdleLoads;
                 }
-                if (entries.Count == 0) continue; // empty categories are omitted (user's call 2026-09-16)
+                if (entries.Count == 0) continue; // empty categories are omitted
 
                 List<ElecEntry> captured = entries;
                 view.Groups.Add(new ListGroup
@@ -365,7 +354,7 @@ namespace MFDExtension.Elec
 
         private static char ArrowFor(double value)
         {
-            if (value > DbsReader.IdleThreshold) return '▲';  // ▲ confirmed rendering in game 2026-09-17 (log 85)
+            if (value > DbsReader.IdleThreshold) return '▲';
             if (value < -DbsReader.IdleThreshold) return '▼'; // ▼
             return ' ';
         }

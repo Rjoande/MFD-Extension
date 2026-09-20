@@ -1,21 +1,17 @@
 namespace MFDExtension.Tcs
 {
     // MAS companion module for the TCS bay (R4, Thermal Control System) -
-    // SystemHeat's loops, members and reactors on three pages. Registered as
-    // a sibling MODULE on MAS_JSI_BasicMFD (Config/Additive/MAS_BasicMFD.cfg
-    // section 8), same "manual companion MODULE" pattern as MFDExtCasModule
-    // and MFDExtElecModule - read those files for why this must be an
-    // InternalModule and for the textmethod / RPM_MODULE signatures.
+    // SystemHeat's loops, members and reactors on three pages. Registered as a
+    // sibling MODULE on MAS_JSI_BasicMFD (MAS_BasicMFD.cfg section 8); see
+    // MFDExtCasModule for why this must be an InternalModule.
     //
-    // ONE module serves all three pages: each list page's TEXT names its own
-    // textmethod and its RPM_MODULE its own buttonClickMethod, which is what
-    // gives every page its own scroll offset. The summary page binds no key
-    // at all and therefore carries no RPM_MODULE.
+    // ONE module serves all three pages, each naming its own textmethod and
+    // buttonClickMethod, which is what gives every page its own scroll offset.
+    // The summary page binds no key and so carries no RPM_MODULE at all.
     public class MFDExtTcsModule : InternalModule
     {
-        // Physical button ids, see MAS_JSI_BasicMFD.cfg's right-column
-        // comment (UP 0, DOWN 1, HOME 4). Configurable from the cfg like
-        // CAS's and ELEC's, defaulting to the real ids.
+        // Physical button ids, see MAS_JSI_BasicMFD.cfg's right-column comment.
+        // Configurable from the cfg, defaulting to the real ids.
         [KSPField]
         public int buttonUp = 0;
         [KSPField]

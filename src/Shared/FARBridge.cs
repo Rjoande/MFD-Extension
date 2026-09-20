@@ -4,30 +4,17 @@ using System.Reflection;
 
 namespace MFDExtension.Shared
 {
-    // THE single FAR stall reader for this whole project (2026-08-24
-    // "shared basket" refactor) - previously two verbatim copies (src/Cas/
-    // and Extras/VVEFIS/src/) plus the threshold constant duplicated a
-    // third and fourth time in their consumers. Source-linked into both
-    // DLLs, see DangItBridge.cs header for the mechanism and rationale.
+    // The FAR stall reader for the whole project, duck-typed by reflection
+    // like DangItBridge: the two candidate module names and the public
+    // "stall" field are the ones VesselViewer itself reads.
     //
-    // FAR (Ferram Aerospace Research) is optional and its types aren't
-    // referenced here - same reflection-based duck-typing approach as
-    // DangItBridge, reading VV's own two candidate module names
-    // ("FARControllableSurface" / "FARWingAerodynamicModel", same pair
-    // VesselViewer.cs checks for its native STALL/DRAG/LIFT modes) and the
-    // public "stall" field VV itself reads off them.
-    //
-    // PROOF OF CONCEPT, NOT VERIFIED IN GAME: this project has no FAR
-    // installation to test against - the field name/range are inferred
-    // solely from VesselViewer.cs's own usage (genFractColor(1f - stall)),
-    // not confirmed against FAR's real source. Degrades to "no data"
-    // silently if the field is missing or FAR isn't installed.
+    // PROOF OF CONCEPT, NEVER TESTED IN GAME: there is no FAR install here,
+    // and the field name and range are inferred from VesselViewer's usage
+    // alone. Degrades silently to "no data".
     internal static class FARBridge
     {
-        // Above this stall fraction a part reads as WARNING on every
-        // channel. Unverified like the rest of this bridge - tune once
-        // testable. Lives here so both channels share one value instead of
-        // the two separate constants they used to carry.
+        // Above this stall fraction a part reads WARNING on every channel.
+        // Unverified like the rest of this bridge; tune once testable.
         internal const float StallWarningThreshold = 0.7f;
 
         private static readonly string[] CandidateModuleNames = { "FARControllableSurface", "FARWingAerodynamicModel" };

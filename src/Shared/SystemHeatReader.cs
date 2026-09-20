@@ -8,8 +8,8 @@ namespace MFDExtension.Shared
     // One member of a heat loop, as the loop simulation sees it this frame.
     // Flux > 0: a source, its totalSystemFlux [kW]. Flux <= 0: a sink, its
     // consumedSystemFlux - what the loop actually allocated to it by priority
-    // (user's decision 2026-09-16, survey section 4.2: a radiator reading
-    // 0 kW in a balanced loop is spare capacity, and should read as such).
+    // (a radiator reading 0 kW in a balanced loop is spare capacity, and
+    // should read as such).
     internal struct HeatMember
     {
         public string Title;
@@ -40,7 +40,7 @@ namespace MFDExtension.Shared
         On,
         Hibernating,
         Charging, // fusion only: capacitors charging with the reactor still off
-        Scram,    // INFERRED: off with the core still above the safety override - SystemHeat keeps no flag for it (user's call 2026-09-18)
+        Scram,    // INFERRED: off with the core still above the safety override - SystemHeat keeps no flag for it
         Meltdown, // CoreIntegrity <= 0
     }
 
@@ -79,12 +79,10 @@ namespace MFDExtension.Shared
         public const float DefaultIdleThreshold = 0.5f;
     }
 
-    // THE SystemHeat reader (2026-09-18, CLAUDE.md log 89). Lives in the
-    // shared basket by decision (survey section 4.3, point 9): the TCS bay is
-    // its first consumer, CAS's thermal entries come in a later round on the
-    // same snapshot. Every member below was read on the decompiled 0.9.1
-    // assembly (the version on the user's install); reflection only, no
-    // compile-time dependency; every failure degrades to "no data".
+    // The SystemHeat reader, in the shared basket because both the TCS bay and
+    // CAS render the same snapshot. Every member below was read on the
+    // decompiled 0.9.1 assembly; reflection only, no compile-time dependency,
+    // and every failure degrades to "no data".
     //
     // Facts that shaped this file, all verified on the source:
     //  - SystemHeatVessel.Simulator.HeatLoops is NULL until the simulator's
@@ -109,9 +107,8 @@ namespace MFDExtension.Shared
     {
         internal const string AssemblyName = "SystemHeat";
 
-        // SystemHeat's own thresholds, shared by the TCS pages and CAS's
-        // thermal entries (verified on 0.9.1: ToolbarPanelLoopWidget's
-        // pulsing borders, LoopTemperatureTest's "critical" level).
+        // SystemHeat's own thresholds, shared by the TCS pages and CAS: the
+        // pulsing panel borders and the Engineer's Report "critical" level.
         internal const float HeatingFlux = 0.05f;    // kW: net flux above this = loop still heating
         internal const float OvertempMargin = 0.5f;  // K above nominal = overtemp (red border)
         internal const float CriticalDelta = 500f;   // K above nominal = Engineer's Report "critical"
@@ -588,7 +585,7 @@ namespace MFDExtension.Shared
 
         // FFT's FusionReactor (ModuleFusionEngine derives from it): the same
         // public fields SystemHeat's ReactorWidget reads through
-        // Fields.GetValue, verified on the decompiled FFT assembly 2026-09-18.
+        // Fields.GetValue, verified on the decompiled FFT assembly.
         private static ReactorInfo ReadFusion(PartModule module)
         {
             Type type = module.GetType();

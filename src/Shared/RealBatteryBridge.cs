@@ -5,51 +5,23 @@ using KSP.Localization;
 
 namespace MFDExtension.Shared
 {
-    // Moved verbatim from Extras/VVEFIS/src/ into the shared basket
-    // (2026-08-24 refactor): it was already channel-neutral (no VesselView
-    // reference), and living here makes it available to the CAS bay or a
-    // future bay B textual monitor at zero cost. Source-linked into both
-    // DLLs, see DangItBridge.cs header for the mechanism.
+    // The RealBattery reader: its own PartModule exposes what we need as
+    // plain public fields, read by reflection like the other bridges.
     //
-    // RealBattery exposes what we need as plain PUBLIC fields on its own
-    // "RealBattery" PartModule (verified against the real source,
-    // E:\Giochi\KSP\Mods\RealBattery\RealBatteryRecharged_v3\RealBattery\source\Core\RealBattery.cs,
-    // read-only - never modify that repo from here) - no code changes needed
-    // there. Read by reflection, same duck-typed pattern as DangItBridge/
-    // FARBridge, not a hard reference to RealBattery's own DLL.
-    //
-    // A part with a RealBattery module carries both ElectricCharge (power)
-    // and StoredCharge (energy, fixed 3600:1 ratio to EC) - averaging them
-    // the way the generic FUEL fraction does would blend two different
-    // physical quantities on different scales into a meaningless number.
-    // SC_SOC is RealBattery's own correctly-scaled state-of-charge reading
-    // instead, and takes over entirely for these parts - see
-    // VVEFISSeverity.GetRealBatteryStatus.
+    // A RealBattery part carries both ElectricCharge (power) and StoredCharge
+    // (energy, fixed 3600:1 to EC), so the generic FUEL average would blend
+    // two scales into a meaningless number; SC_SOC, RealBattery's own scaled
+    // state of charge, takes over for these parts entirely.
     internal static class RealBatteryBridge
     {
-        // RealBattery's own EOL_THRESHOLD constant (verified against its real
-        // source, not invented) - the point at which RealBattery itself
-        // already considers a cell "end of life" and starts notifying the
-        // player. Lives here (2026-08-24) so every channel that reads
-        // BatteryLife shares one value instead of a second hand-copied 0.80.
+        // RealBattery's own EOL_THRESHOLD: the point at which it already
+        // considers a cell end-of-life and starts notifying the player.
         internal const double EolThreshold = 0.80;
 
-        // "#LOC_RB_Status_Overheat" is the localization key RealBattery itself
-        // resolves BatteryChargeStatus to while its (internal, unreadable by
-        // us) IsOverheating is true - see RealBattery.cs's own status-update
-        // block. Resolved lazily via the same KSP.Localization.Localizer
-        // RealBattery uses, not hardcoded English, so this still matches on
-        // a localized install. Comparing resolved text is the only public
-        // surface for this signal: IsOverheating and its backing flags
-        // (OverheatNotified, the private one; ThermalCapFactor, public but
-        // ONLY meaningful for InfiniteCycles-chemistry batteries) don't
-        // cover both battery chemistries through public members alone -
-        // BatteryChargeStatus is the one field RealBattery already unifies
-        // both onto (verified on the real source, 2026-08-27, after the
-        // first in-game test found overheat silently missing: the OLD
-        // `part.temperature > TempOverheat` computation here had no
-        // hysteresis and doesn't match RealBattery's own notion of
-        // "currently overheating" at all - it was never the right signal).
+        // Comparing BatteryChargeStatus against this key is the only public
+        // signal for "currently overheating": IsOverheating is internal, and
+        // the public backing flags cover only one of the two chemistries.
+        // Resolved through the game's Localizer, so it matches any install.
         private static string overheatStatusText;
         private static string OverheatStatusText => overheatStatusText ?? (overheatStatusText = Localizer.Format("#LOC_RB_Status_Overheat"));
 
@@ -57,7 +29,7 @@ namespace MFDExtension.Shared
         {
             internal readonly bool Present;
             internal readonly bool IsRunaway;
-            internal readonly bool Overheating; // BatteryChargeStatus == OverheatStatusText - see the comment above OverheatStatusText
+            internal readonly bool Overheating; // BatteryChargeStatus == OverheatStatusText
             internal readonly double BatteryLife;
             internal readonly bool BatteryDisabled;
             internal readonly double SC_SOC;
@@ -81,7 +53,7 @@ namespace MFDExtension.Shared
             internal FieldInfo BatteryLife;      // double, 0..1
             internal FieldInfo BatteryDisabled;  // bool
             internal FieldInfo SC_SOC;           // double, 0..1
-            internal FieldInfo ChargeStatus;     // string ("BatteryChargeStatus") - OPTIONAL: missing on an older RealBattery just means Overheating always reads false, doesn't disable the whole bridge (same tolerance pattern as DangItBridge's ScreenName)
+            internal FieldInfo ChargeStatus;     // string, OPTIONAL: if missing, Overheating just stays false
         }
 
         private static readonly Dictionary<Type, BatteryFields?> fieldCache = new Dictionary<Type, BatteryFields?>();

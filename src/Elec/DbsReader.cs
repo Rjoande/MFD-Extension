@@ -50,13 +50,10 @@ namespace MFDExtension.Elec
         public float TimeWarpLimit = 100f;
     }
 
-    // THE DynamicBatteryStorage reader (2026-09-17, CLAUDE.md log 88). Every
-    // member below was read on the decompiled 2.3.7 assembly (the version on
-    // the user's real install) and cross-checked against 2.3.3 - see
-    // notes/survey-bays-systemheat-dbs.md sections 2 and 4.1-bis. By
-    // reflection only, the project-wide "no compile-time dependency on an
-    // optional mod" rule; every failure degrades to "no data", never throws
-    // into MAS.
+    // The DynamicBatteryStorage reader. Every member below was read on the
+    // decompiled 2.3.7 assembly and cross-checked against 2.3.3. Reflection
+    // only, no compile-time dependency on an optional mod; every failure
+    // degrades to "no data" and never throws into MAS.
     //
     // Lives in src/Elec/, NOT src/Shared/: the satellite DLLs (VVEFIS, VVHolo)
     // glob Shared/*.cs and none of them reads DBS.

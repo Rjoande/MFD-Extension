@@ -5,48 +5,31 @@ using VesselViewRPM.menus;
 
 namespace VVThermalMap
 {
-    // Registers a new VesselView custom color mode ("SHELL TEMP") using the
-    // same public extension points VVEFISAddon uses (CustomModeSettings +
-    // VViewCustomMenusMenu.registerMenu / VesselViewPlugin.registerCustomMode) -
-    // purely additive, installs alongside VesselView/VesselViewRPM without
-    // patching or replacing any of its files. See MFDExtension/CLAUDE.md and
-    // Extras/VVThermalMap/CLAUDE.md for the full design history.
+    // Registers a new VesselView custom color mode ("SHELL TEMP") through the
+    // same public extension points VVEFISAddon uses: purely additive, nothing
+    // of VesselView is patched or replaced.
     [KSPAddon(KSPAddon.Startup.Flight, true)]
     public class VVThermalMapAddon : MonoBehaviour
     {
-        // In-flight wireframe toggle (2026-09-01), ported verbatim from
-        // VVEFISAddon after it was implemented and tested there first (see
-        // MFDExtension/CLAUDE.md log 76). Global to the process, not
-        // per-screen - every VV monitor running SHELL TEMP shares this one
-        // flag. Read by wireColorDullDelegate below - VV's OWN native "dull"
-        // mechanism (VesselViewer.GetPartColor halves the wire color's RGB
-        // when the dull delegate returns true) already IS the "slightly
-        // darker tint of the fill" this gives, so no custom darkening math
-        // here either. Reachable from the SAME menu already used to pick
-        // "SHELL TEMP", no new button/softkey wiring: VV's menu text overlay
-        // and its live 3D render are independent channels of the same
-        // screen, not alternating states - the toggle item added to
-        // CreateMenu below sits on screen right on top of the live rotating
-        // vessel.
+        // In-flight wireframe toggle, global to the process rather than
+        // per-screen. VV's own "dull" mechanism already halves the wire
+        // color's RGB, which is the darker tint of the fill wanted here.
         private static bool wireframeEnabled = false;
 
         void Start()
         {
-            // Same reasoning as VVEFISAddon: the CLR only resolves a
-            // method's type references right before it's JIT-compiled, so
-            // keeping every VesselView-touching call out of this method
-            // means a missing VesselView install never throws a
-            // TypeLoadException here - it just silently does nothing.
+            // Same reason as VVEFISAddon: the CLR resolves a method's type
+            // references only when JIT-compiling it, so keeping every
+            // VesselView call out of here turns a missing install into a
+            // silent no-op rather than a TypeLoadException.
             if (!IsVesselViewPresent()) return;
             Register();
         }
 
         private static bool IsVesselViewPresent()
         {
-            // Same CLR-assembly-name check as VVEFISAddon, same reason:
-            // AssemblyLoader.LoadedAssembly.name reflects the KSPAssembly
-            // attribute, which VesselView Continued stamps identically
-            // across all five of its DLLs - see ModPresence.cs's own header.
+            // By CLR assembly name: VesselView Continued stamps one shared
+            // KSPAssembly name on all five of its DLLs - see ModPresence.
             return ModPresence.IsLoaded("VesselViewRPM");
         }
 
@@ -67,30 +50,22 @@ namespace VVThermalMap
                 MinimodesOverride = (int)CustomModeSettings.OVERRIDE_TYPES.STATIC
             };
 
-            // Same reasoning as VVEFIS: engine icons draw their own
-            // hardcoded colors (e.g. red for NOFUEL) as thin lines
-            // regardless of ColorModeOverride - left on, they'd sit
-            // uncontrolled on top of our own heatmap fill.
+            // Suppressed: engine icons draw hardcoded colors regardless of
+            // ColorModeOverride and would sit on top of the heatmap fill.
             settings.staticSettings.displayEngines = false;
 
             settings.fillColorDelegate = (mode, part) => VVThermalMapColor.GetColor(part);
             settings.wireColorDelegate = (mode, part) => VVThermalMapColor.GetColor(part);
 
-            // Still no alarm/border SEMANTICS here - unlike VVEFIS, this
-            // box color carries no Tier/state information, it's purely a
-            // static outline for legibility (user request after the first
-            // in-game test, 2026-08-30 log 5). Solid opaque black, same
-            // static choice VesselView's own VVDiscoDisplay example makes
-            // for its box. VesselViewer.GetBoxColor calls this delegate
-            // unconditionally once ColorModeOverride is FUNCTION, so it
-            // can't be left null regardless of what it returns.
+            // No alarm semantics here, unlike VVEFIS: a static outline for
+            // legibility only. VesselViewer calls this delegate
+            // unconditionally once ColorModeOverride is FUNCTION, so it can
+            // never be left null whatever it returns.
             settings.boxColorDelegate = (mode, part) => Color.black;
 
             settings.fillColorDullDelegate = mode => false;
-            // Off by default: wire == fill exactly, same "fused, invisible"
-            // baseline as before this feature existed. On: VV halves the
-            // wire color's RGB per part, giving a darker-tinted edge in the
-            // part's own heatmap hue instead of a flat, unrelated gray.
+            // Off: wire == fill exactly, fused and invisible. On: VV halves the
+            // wire RGB, an edge in the part's own heatmap hue.
             settings.wireColorDullDelegate = mode => wireframeEnabled;
             settings.boxColorDullDelegate = mode => false;
 
@@ -100,20 +75,15 @@ namespace VVThermalMap
         private static IVViewMenu CreateMenu()
         {
             CustomModeSettings settings = BuildSettings();
-            // "MODE ACTIVE" is inert (click target null = stay put) - kept
-            // for the same safety reason as before (VViewSimpleMenu.up()/
-            // down() on an EMPTY item array drives activeItemPos to -1, and
-            // a subsequent click() indexes menuItems[-1] -
-            // IndexOutOfRangeException). "WIREFRAME" is the real toggle:
-            // VViewSimpleCustomMenuItem's own bool getter/setter constructor -
-            // VV renders its own "On"/"Off" suffix via ToString().
+            // "MODE ACTIVE" is inert but required: up()/down() on an EMPTY item
+            // array drives activeItemPos to -1 and the next click() then
+            // indexes menuItems[-1]. "WIREFRAME" is the real toggle, rendered
+            // with VV's own "On"/"Off" suffix.
             IVVSimpleMenuItem[] items =
             {
                 new VViewSimpleCustomMenuItem("MODE ACTIVE"),
-                // Trailing space: VViewSimpleCustomMenuItem.ToString() appends
-                // the "On"/"Off" suffix directly after the label with no
-                // separator of its own - confirmed on VVEFIS ("WIREFRAME" +
-                // "On" == "WIREFRAMEOn" without it, log 76).
+                // Trailing space on purpose: ToString() appends that suffix
+                // straight after the label, with no separator of its own.
                 new VViewSimpleCustomMenuItem("WIREFRAME ", () => wireframeEnabled, v => wireframeEnabled = v)
             };
             VViewSimpleMenu menu = new VViewSimpleMenu(items, settings.name);
