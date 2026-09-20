@@ -6,9 +6,15 @@
     <LangVersion>8.0</LangVersion>
     <AssemblyName>MFDExtension</AssemblyName>
     <RootNamespace>MFDExtension</RootNamespace>
-    <Version>0.3.1</Version>
+    <Version>0.4.0</Version>
     <DebugType>none</DebugType>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- KSP install the reference assemblies come from. Defaults to the game
+         root three levels up (the repo living in <KSP>/GameData/MFD-Extension); when
+         the repo lives elsewhere - it does since 2026-09-18, E:\Giochi\KSP\Mods -
+         pass it explicitly, same convention as KRAB/KRILL/SA:
+             dotnet build -c Release -p:KspRoot="E:\path\to\KSP" -->
+    <KspRoot Condition="'$(KspRoot)' == ''">$(MSBuildProjectDirectory)\..\..\..</KspRoot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,15 +28,15 @@
          Add UGUI/ToolbarControl references here only if/when a desktop
          toolbar window is added — not needed for prop/page handlers. -->
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(KspRoot)\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(KspRoot)\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\KSP_x64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(KspRoot)\KSP_x64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

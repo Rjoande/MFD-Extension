@@ -39,6 +39,15 @@ namespace MFDExtension.Cas
     // a FAR stall at once) - these are independent problems, listed
     // separately, not merged into "worst wins" the way VVEFISSeverity does
     // for a single fill color.
+    //
+    // Since 2026-09-19 (log 90) SystemHeat is the fourth source, read from
+    // the same shared snapshot the TCS bay renders (Shared/SystemHeatReader,
+    // decided 2026-09-16 as point 9 of the TCS/ELEC design): loop overtemp
+    // (CAUTION) and critical (WARNING) on SystemHeat's own thresholds, a
+    // reactor core above nominal (CAUTION) or critical (WARNING), an
+    // inferred SCRAM and a MELTDOWN (WARNING), damaged core integrity and
+    // cryo tank boil-off (ADVISORY). A loop merely HEATING is not an alert:
+    // every reactor start-up does that, and the TCS page shows it.
     internal static class CasAggregator
     {
         // Colors match VVEFISSeverity's own WARNING/CAUTION/ADVISORY palette
@@ -168,8 +177,9 @@ namespace MFDExtension.Cas
             bool dangItLoaded = ModPresence.IsLoaded("DangIt", "DangItContinued");
             bool farLoaded = ModPresence.IsLoaded("FerramAerospaceResearch");
             bool realBatteryLoaded = ModPresence.IsLoaded("RealBattery");
+            bool systemHeatLoaded = SystemHeatReader.IsAvailable;
 
-            if (!dangItLoaded && !farLoaded && !realBatteryLoaded)
+            if (!dangItLoaded && !farLoaded && !realBatteryLoaded && !systemHeatLoaded)
             {
                 return NoSourcesPage(screenWidth);
             }
@@ -214,6 +224,7 @@ namespace MFDExtension.Cas
                     CollectFar(part, entryBuffer);
                     CollectRealBattery(part, entryBuffer);
                 }
+                CollectSystemHeat(vessel, entryBuffer);
             }
 
             warnBuffer.Clear();
@@ -306,6 +317,58 @@ namespace MFDExtension.Cas
             return (part.partInfo != null && !string.IsNullOrEmpty(part.partInfo.title)) ? part.partInfo.title : part.name;
         }
 
+        // Thermal entries from SystemHeat's shared snapshot (0.25 s cache in
+        // the reader, so polling this at ~50 Hz costs nothing extra). Labels
+        // are all <= LabelColumnWidth by construction, no abbreviation table
+        // entry needed. A loop has no part: its "title" carries the loop id
+        // and the temperature pair instead.
+        private static void CollectSystemHeat(Vessel vessel, List<AlertEntry> entries)
+        {
+            if (!SystemHeatReader.IsAvailable) return;
+            SystemHeatSnapshot data = SystemHeatReader.GetSnapshot(vessel);
+            if (!data.HasData) return;
+
+            for (int i = 0; i < data.Loops.Count; ++i)
+            {
+                HeatLoopInfo loop = data.Loops[i];
+                float delta = loop.Temperature - loop.NominalTemperature;
+                if (delta < SystemHeatReader.OvertempMargin) continue;
+                Tier tier = delta >= SystemHeatReader.CriticalDelta ? Tier.Warning : Tier.Caution;
+                string title = "Heat loop " + loop.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                               + "  " + loop.Temperature.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)
+                               + "/" + loop.NominalTemperature.ToString("F0", System.Globalization.CultureInfo.InvariantCulture) + " K";
+                entries.Add(new AlertEntry(tier, "OVHT", title));
+            }
+
+            for (int i = 0; i < data.Reactors.Count; ++i)
+            {
+                ReactorInfo reactor = data.Reactors[i];
+                switch (reactor.State)
+                {
+                    case ReactorState.Meltdown:
+                        entries.Add(new AlertEntry(Tier.Warning, "MELTDWN", reactor.Title));
+                        continue; // nothing else matters on a dead core
+                    case ReactorState.Scram:
+                        entries.Add(new AlertEntry(Tier.Warning, "SCRAM", reactor.Title));
+                        break;
+                }
+                if (reactor.Kind != ReactorKind.Fission) continue; // fusion: no core model to judge
+
+                if (reactor.CoreTemperature > reactor.CriticalTemperature)
+                    entries.Add(new AlertEntry(Tier.Warning, "CORE", reactor.Title));
+                else if (reactor.CoreTemperature > reactor.NominalTemperature)
+                    entries.Add(new AlertEntry(Tier.Caution, "CORE", reactor.Title));
+
+                if (reactor.Integrity < 100f)
+                    entries.Add(new AlertEntry(Tier.Advisory, "INTEG", reactor.Title));
+            }
+
+            for (int i = 0; i < data.BoiloffTanks.Count; ++i)
+            {
+                entries.Add(new AlertEntry(Tier.Advisory, "BOILOFF", data.BoiloffTanks[i]));
+            }
+        }
+
         private static void AppendHeader(StringBuilder sb, int screenWidth, int warnCount, int cautionCount, int advisoryCount)
         {
             string counts = "W:" + warnCount + " C:" + cautionCount + " A:" + advisoryCount;
@@ -345,8 +408,8 @@ namespace MFDExtension.Cas
             sb.Append(NL);
             sb.Append("NO FAULT SOURCES DETECTED").Append(NL);
             sb.Append(NL);
-            sb.Append("Install DangIt, FAR, or").Append(NL);
-            sb.Append("RealBattery for active fault").Append(NL);
+            sb.Append("Install DangIt, FAR, RealBattery").Append(NL);
+            sb.Append("or SystemHeat for active fault").Append(NL);
             sb.Append("monitoring.");
             return sb.ToString();
         }

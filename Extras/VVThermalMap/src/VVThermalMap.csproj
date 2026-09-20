@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- KSP 1.12.5 runs Unity 2019.4 / Mono: target .NET Framework 4.7.2 -->
@@ -6,9 +6,15 @@
     <LangVersion>8.0</LangVersion>
     <AssemblyName>VVThermalMap</AssemblyName>
     <RootNamespace>VVThermalMap</RootNamespace>
-    <Version>0.3.1</Version>
+    <Version>0.4.0</Version>
     <DebugType>none</DebugType>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- KSP install the reference assemblies come from. Defaults to the game
+         root five levels up (the repo living in <KSP>/GameData/MFD-Extension); when
+         the repo lives elsewhere - it does since 2026-09-18, E:\Giochi\KSP\Mods -
+         pass it explicitly, same convention as KRAB/KRILL/SA:
+             dotnet build -c Release -p:KspRoot="E:\path\to\KSP" -->
+    <KspRoot Condition="'$(KspRoot)' == ''">$(MSBuildProjectDirectory)\..\..\..\..\..</KspRoot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,15 +40,15 @@
          the KSP install root (Extras\VVThermalMap\src\ -> MFDExtension\ ->
          GameData\ -> root). -->
     <Reference Include="Assembly-CSharp">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(KspRoot)\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(KspRoot)\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\..\KSP_x64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(KspRoot)\KSP_x64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <!-- VesselView/VesselViewRPM: same real (not reflection-based) dependency
@@ -50,15 +56,15 @@
          needs the real types. See VVEFISAddon.cs for why touching these
          types must stay guarded behind a runtime AssemblyLoader check. -->
     <Reference Include="VesselView">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\VesselView\Plugins\VesselView.dll</HintPath>
+      <HintPath>$(KspRoot)\GameData\VesselView\Plugins\VesselView.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="VesselViewRPM">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\VesselView\Plugins\VesselViewRPM.dll</HintPath>
+      <HintPath>$(KspRoot)\GameData\VesselView\Plugins\VesselViewRPM.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="VesselViewPlugin">
-      <HintPath>$(MSBuildProjectDirectory)\..\..\..\..\VesselView\Plugins\VesselViewPlugin.dll</HintPath>
+      <HintPath>$(KspRoot)\GameData\VesselView\Plugins\VesselViewPlugin.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

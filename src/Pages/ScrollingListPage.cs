@@ -14,6 +14,11 @@ namespace MFDExtension.Pages
     {
         public string Label;                 // header text, uppercase by convention ("WARNING", "SOLAR PANELS", "LOOP 0")
         public string ColorTag;              // "[#RRGGBBAA]" applied to the header and to the collapsed "LABEL (N)" line
+        // Optional text flushed to the right edge of the header line AND of
+        // the collapsed "LABEL (N)" line (ELEC: a category subtotal). Added
+        // 2026-09-17 (log 88); null = byte-identical output to before the
+        // field existed, which is what keeps CAS at parity (harness re-run).
+        public string HeaderRight;
         public int Count;                    // number of entries currently in the group
         public int RowsPerEntry = 1;         // every entry of a group has the same height
         // Appends entry `index` to `sb` as EXACTLY RowsPerEntry rows, each
@@ -93,6 +98,15 @@ namespace MFDExtension.Pages
         public static void AppendBodyAndStatus(StringBuilder sb, IList<ListGroup> groups, ref int scrollOffset,
                                                int screenWidth, bool showEmptyGroups)
         {
+            AppendBodyAndStatus(sb, groups, ref scrollOffset, screenWidth, showEmptyGroups, KeyLegend);
+        }
+
+        // Same, with a page-specific key legend (a bay that binds one more
+        // physical key than CAS's scroll/home pair says so on its own status
+        // line - ELEC's "x: mode", log 88).
+        public static void AppendBodyAndStatus(StringBuilder sb, IList<ListGroup> groups, ref int scrollOffset,
+                                               int screenWidth, bool showEmptyGroups, string keyLegend)
+        {
             ClampOffset(groups, ref scrollOffset);
             int total = TotalEntries(groups);
 
@@ -103,7 +117,7 @@ namespace MFDExtension.Pages
                 sb.Append(NL);
             }
             sb.Append('-', screenWidth).Append(NL);
-            AppendStatusLine(sb, total, scrollOffset, entriesShown, screenWidth);
+            AppendStatusLine(sb, total, scrollOffset, entriesShown, screenWidth, keyLegend);
         }
 
         // The DOWN button's decision of whether to advance at all. Never pushes
@@ -174,7 +188,7 @@ namespace MFDExtension.Pages
                     // the caller's own header counts don't already say.
                     if (showEmptyGroups && rowsUsed + 2 + laterNonEmpty <= BodyBudget)
                     {
-                        AppendGroupHeader(sb, group);
+                        AppendGroupHeader(sb, group, screenWidth);
                         sb.Append(' ', EntryIndent).Append("(none)").Append(NL);
                         rowsUsed += 2;
                     }
@@ -184,7 +198,7 @@ namespace MFDExtension.Pages
                 int fullyExpandedRows = 1 /* header */ + remaining * rpe;
                 if (rowsUsed + fullyExpandedRows + laterNonEmpty <= BodyBudget)
                 {
-                    AppendGroupHeader(sb, group);
+                    AppendGroupHeader(sb, group, screenWidth);
                     for (int i = from; i < group.Count; ++i) group.RenderEntry(sb, i, screenWidth);
                     rowsUsed += fullyExpandedRows;
                     entriesShown += remaining;
@@ -197,12 +211,12 @@ namespace MFDExtension.Pages
 
                     if (shown == 0)
                     {
-                        AppendCollapsed(sb, group, remaining);
+                        AppendCollapsed(sb, group, remaining, screenWidth);
                         rowsUsed += 1;
                     }
                     else
                     {
-                        AppendGroupHeader(sb, group);
+                        AppendGroupHeader(sb, group, screenWidth);
                         for (int i = from; i < from + shown; ++i) group.RenderEntry(sb, i, screenWidth);
                         entriesShown += shown;
                         rowsUsed += 1 + shown * rpe;
@@ -216,7 +230,7 @@ namespace MFDExtension.Pages
                     {
                         if (groups[later].Count > 0)
                         {
-                            AppendCollapsed(sb, groups[later], groups[later].Count);
+                            AppendCollapsed(sb, groups[later], groups[later].Count, screenWidth);
                             rowsUsed += 1;
                         }
                     }
@@ -227,14 +241,34 @@ namespace MFDExtension.Pages
             return entriesShown;
         }
 
-        private static void AppendGroupHeader(StringBuilder sb, ListGroup group)
+        private static void AppendGroupHeader(StringBuilder sb, ListGroup group, int screenWidth)
         {
-            sb.Append(group.ColorTag).Append(group.Label).Append(ResetColorTag).Append(NL);
+            sb.Append(group.ColorTag);
+            AppendWithRight(sb, group.Label, group.HeaderRight, screenWidth);
+            sb.Append(ResetColorTag).Append(NL);
         }
 
-        private static void AppendCollapsed(StringBuilder sb, ListGroup group, int count)
+        private static void AppendCollapsed(StringBuilder sb, ListGroup group, int count, int screenWidth)
         {
-            sb.Append(group.ColorTag).Append(group.Label).Append(" (").Append(count).Append(')').Append(ResetColorTag).Append(NL);
+            sb.Append(group.ColorTag);
+            AppendWithRight(sb, group.Label + " (" + count + ")", group.HeaderRight, screenWidth);
+            sb.Append(ResetColorTag).Append(NL);
+        }
+
+        // `left`, then `right` flushed to the screen edge. The left half
+        // gives way (truncated) rather than the right one: the right half is
+        // a number, and a row longer than the screen would wrap or clip.
+        private static void AppendWithRight(StringBuilder sb, string left, string right, int screenWidth)
+        {
+            if (string.IsNullOrEmpty(right))
+            {
+                sb.Append(left);
+                return;
+            }
+            int room = screenWidth - right.Length - 1;
+            if (room < 0) room = 0;
+            if (left.Length > room) left = left.Substring(0, room);
+            sb.Append(left).Append(' ', Math.Max(0, screenWidth - left.Length - right.Length)).Append(right);
         }
 
         // Same fit test AppendBody performs, without rendering: "reaches the
@@ -274,16 +308,59 @@ namespace MFDExtension.Pages
         }
 
         // "X-Y of N" left, key legend flushed right (two halves, log 77).
-        private static void AppendStatusLine(StringBuilder sb, int total, int scrollOffset, int entriesShown, int screenWidth)
+        private static void AppendStatusLine(StringBuilder sb, int total, int scrollOffset, int entriesShown, int screenWidth,
+                                             string keyLegend)
         {
             int first = scrollOffset + 1;
             int last = scrollOffset + entriesShown;
             string position = first + "-" + last + " of " + total;
 
-            int gap = screenWidth - position.Length - KeyLegend.Length;
-            string line = gap > 0 ? position + new string(' ', gap) + KeyLegend : position + " " + KeyLegend;
+            // The legend may carry inline color tags (ELEC's green mode-key
+            // glyph, log 88): measure what is VISIBLE, not the raw string. A
+            // tag-free legend (CAS) takes exactly the path it always did.
+            int gap = screenWidth - position.Length - VisibleLength(keyLegend);
+            if (gap > 0)
+            {
+                sb.Append(position).Append(' ', gap).Append(keyLegend);
+                return;
+            }
+            string line = position + " " + StripColorTags(keyLegend); // overflow: plain text, cut at the edge
             if (line.Length > screenWidth) line = line.Substring(0, screenWidth);
             sb.Append(line);
+        }
+
+        // Inline color tags are exactly "[#RRGGBBAA]" (11 chars) everywhere
+        // in this project; anything else starting with '[' is literal text.
+        private const int ColorTagLength = 11;
+
+        private static bool IsColorTagAt(string text, int index)
+        {
+            return index + ColorTagLength <= text.Length && text[index] == '[' && text[index + 1] == '#'
+                   && text[index + ColorTagLength - 1] == ']';
+        }
+
+        public static int VisibleLength(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return 0;
+            int length = 0;
+            for (int i = 0; i < text.Length;)
+            {
+                if (IsColorTagAt(text, i)) i += ColorTagLength;
+                else { length++; i++; }
+            }
+            return length;
+        }
+
+        public static string StripColorTags(string text)
+        {
+            if (string.IsNullOrEmpty(text) || text.IndexOf("[#", StringComparison.Ordinal) < 0) return text;
+            StringBuilder plain = new StringBuilder(text.Length);
+            for (int i = 0; i < text.Length;)
+            {
+                if (IsColorTagAt(text, i)) i += ColorTagLength;
+                else plain.Append(text[i++]);
+            }
+            return plain.ToString();
         }
 
         // Text that overflows its column scrolls (marquee) instead of being cut

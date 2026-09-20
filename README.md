@@ -14,37 +14,49 @@ press, exitable the same way, without replacing, renaming, or otherwise disturbi
 
 ## Supported mods
 
+Top row (A-G) is flight and command, bottom row (R1-R7) is vessel systems, on the EICAS/ECAM model.
+
 | Bay | Mod | Status |
 |---|---|---|
 | A | [Situational Awareness](https://github.com/Rjoande/SituationalAwareness) | hello-world (real design not built yet) |
-| B | [Real Battery](https://github.com/Rjoande/RealBattery) | working — 3-page cycle: EPS summary, per-vessel telemetry, fleet view |
+| B | [NavInstruments](https://github.com/net-lisias-kspu/NavInstruments/releases) | working |
 | C | [KRAB-9000](https://github.com/Rjoande/KRAB) | hello-world (real design not built yet) |
 | D | [KRILL](https://github.com/Rjoande/KRILL) | hello-world (real design not built yet) |
-| E | [NavInstruments](https://github.com/net-lisias-kspu/NavInstruments/releases)* | working |
-| F | CAS (built in) | working† |
+| R1 | CAS (built in) | working |
+| R2 | [Real Battery](https://github.com/Rjoande/RealBattery) | working |
+| R3 | ELEC (built in) — reads [DynamicBatteryStorage](https://github.com/post-kerbin-mining-corporation/DynamicBatteryStorage) | working |
+| R4 | TCS (built in) — reads [SystemHeat](https://github.com/post-kerbin-mining-corporation/SystemHeat) | working |
 
-> *bridges its own HSI/ILS display, rescued from patches that go silently dead on any install where Avionics Systems promotes RasterPropMonitor screens to its own equivalent
-> †a textual WARNING/CAUTION/ADVISORY fault summary, self-contained (not a hosted mod's bay) — reads DangIt, FAR, and RealBattery (runaway/overheat/end-of-life only, not charge level — that's still Real Battery's own bay B) by reflection if any is installed, otherwise shows a "no fault sources" message. Scrolls with the monitor's own ▲/▼/○ keys; **x** mutes DangIt's aural alarm from the cockpit without clearing anything from the screen.
+### NavInstruments
+Bridges its own HSI/ILS display, rescued from patches that go silently dead on any install where Avionics Systems promotes RasterPropMonitor screens to its own equivalent.
+
+### Crew Alert System (CAS)
+A textual WARNING/CAUTION/ADVISORY fault summary, self-contained (not a hosted mod's bay). Reads DangIt, FAR, RealBattery (runaway/overheat/end-of-life) and SystemHeat (loop overtemp, reactor core, SCRAM, meltdown, core damage, boil-off) if any is installed, otherwise shows a "no fault sources" message. Scrolls with the monitor's own ▲/▼/○ keys; **x** mutes DangIt's aural alarm from the cockpit without clearing anything from the screen.
+
+### Electricity (ELEC)
+The vessel's electrical ledger on three pages (press **R3** to cycle, or step with NEXT/PREV): a summary (net flow, generated/consumed, EC level, timewarp buffer, top loads and sources), then every source and every load grouped by category with subtotals, scrollable. **ENTER** (the green arrow) switches between PLANT (batteries kept out of the totals and shown on their own STORAGE with Real Battery installed: DynamicBatteryStorage's own net figure sits near zero, because storage always absorbs or supplies the balance) and TOTAL (DynamicBatteryStorage's own numbers).
+
+### Thermal Control System (TCS)
+The vessel's thermal picture on three pages (press **R4** to cycle, or step with NEXT/PREV): a summary (heat generated/rejected, one row per heat loop with temperature vs nominal, net flux and a NOMINAL/HEATING/OVERTEMP/CRITICAL status on SystemHeat's own thresholds, reactor/cryo-tank/heat-sink counts), then every loop with its members (what each source adds, what the loop actually allocated to each radiator or sink), then every reactor (state, power, heat, core temperature, throttle, core integrity, fuel life). Fusion reactors from Far Future Technologies are listed too, with what SystemHeat's own panel reads from them. Says so plainly if SystemHeat isn't installed.
 
 ## Extras (optional)
 
-Three custom colour modes for [VesselView Continued](https://github.com/linuxgurugamer/VesselView), installed alongside it without patching any of its files. Each ships as its own DLL under `Extras/` — delete any folder and nothing else changes. All three are unrelated to the MFD bays above and require VesselView; the rest of the framework does not.
+Three custom colour modes for [VesselView Continued](https://github.com/linuxgurugamer/VesselView), installed alongside it. Each ships as its own DLL under `Extras/` (delete any folder you don't want and nothing else changes). All three are unrelated to the MFD bays above and require VesselView; the rest of the framework does not.
 
 | Mode | What it shows |
 |---|---|
 | **EFIS SEVERITY** | Every part on the same WARNING/CAUTION/ADVISORY severity scale CAS uses, replacing VesselView's own STATE-mode colours. A pulsing red border marks genuine malfunctions, separately from mere depletion (an empty tank, a flamed-out engine), which get colour only. |
-| **SHELL TEMP** | Every part by skin temperature, on a continuous blue→cyan→green→yellow→red heat map that accelerates into the danger band above 60%/80% of that part's own skin limit. |
-| **HOLO** | A sci-fi holographic look instead of a diagnostic readout: parts are cobalt blue with a light-blue wireframe by default. Only WARNING/CAUTION parts get distinct treatment (fill and wireframe turn red, the outline breathes); everything else stays visually nominal. Engine icons are suppressed — their colours are hardcoded with no public hook to recolour them to match. |
+| **SHELL TEMP** | Every part by skin temperature, on a continuous 5-colour heat map (orange starts in danger band above 60%/80% of that part's own skin limit). |
+| **HOLO** | A sci-fi holographic look instead of a diagnostic readout: parts are cobalt blue with a light-blue wireframe by default. Only WARNING/CAUTION parts get distinct treatment (fill and wireframe turn red, the outline breathes); everything else stays visually nominal. |
 
-EFIS SEVERITY and SHELL TEMP offer a wireframe toggle, switchable in flight from their own submenu without leaving the 3D view; HOLO's wireframe is always on, nothing to toggle.
+EFIS SEVERITY and SHELL TEMP offer a wireframe toggle, switchable in flight from their own submenu.
 
 ## Requirements
 
 - Kerbal Space Program 1.12.5
 - [ModuleManager](https://github.com/sarbian/ModuleManager)
-- [MOARdV's Avionics Systems](https://github.com/MOARdV/AvionicsSystems). This release targets the MAS-flavoured BasicMFD prop (`MAS_JSI_BasicMFD`); it does nothing on an install without MAS. Note that MAS itself commonly promotes plain RasterPropMonitor screens to this same MAS prop across an entire install, so "I only use RPM, not MAS" installs are less common than they look. Check for `MOARdV/Patches/000_JSI-To-MAS.cfg` if unsure which one your IVAs actually use.
-- The CAS bay (F) requires the compiled `Plugins/MFDExtension.dll` shipped with this release — the rest of the framework is still pure config/Lua and works without it, but F specifically won't if the DLL is missing.
-- DangIt, Ferram Aerospace Research (FAR), and/or Real Battery are all optional — CAS reads whichever are present by reflection, and says so plainly if none are installed.
+- [MOARdV's Avionics Systems](https://github.com/MOARdV/AvionicsSystems). This release targets the MAS-flavoured BasicMFD prop (`MAS_JSI_BasicMFD`); it does nothing on an install without MAS. Note that MAS itself commonly promotes plain RasterPropMonitor screens to this same MAS prop across an entire install. Check for `MOARdV/Patches/000_JSI-To-MAS.cfg` if unsure which one your IVAs actually use.
+- DangIt, Ferram Aerospace Research (FAR), and/or Real Battery are all optional. CAS reads whichever are present by reflection. DynamicBatteryStorage and SystemHeat are also optional, but they're what the ELEC and TCS bays read.
 
 ## Installation
 
@@ -53,14 +65,13 @@ Copy the contents of this repository into your `GameData` folder, so you end up 
 ## Known limitations & Future Plans
 
 - SA/KRAB/KRILL bays are placeholders (real content isn't built yet). Each will ship from its own mod's repository, following the contract in `HOSTING.md`.
-- Requires Avionics Systems; RPM-only installs (no MAS at all) aren't supported by this release. An earlier RPM-only implementation exists, unverified, in the dev repo's `_deprecated/rpm-only/` folder, not part of what's installed from this package.
-- Only one host prop (`MAS_JSI_BasicMFD`) is supported for now; extending to other MFD props (ALCOR, StarshipMFD...) is a future step.
+- Requires Avionics Systems; RPM-only installs (no MAS at all) aren't supported by this release. An earlier RPM-only implementation exists, unverified, in the dev repo's `_deprecated/rpm-only/` folder, not part of what's installed from this package. Free to use for anyone wanting to experiment, but no support is offered on this branch.
+- Only one host prop (`MAS_JSI_BasicMFD`) is supported for now; extending to other MFD props (ALCOR, NearFuture, StarshipMFD...) is a future step.
 - CAS's fault-name abbreviations are keyed on the English strings, so a localized DangIt install falls back to ellipsis truncation for the longer ones.
 - English only for now.
 
 Planned next:
 
-- A bay dedicated to [SystemHeat](https://github.com/post-kerbin-mining-corporation/SystemHeat), and one to [DynamicBatteryStorage](https://github.com/post-kerbin-mining-corporation/DynamicBatteryStorage).
 - Support for other monitor types beyond `MAS_JSI_BasicMFD`.
 
 ## License

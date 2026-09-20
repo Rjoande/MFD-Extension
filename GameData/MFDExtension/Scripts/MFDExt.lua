@@ -32,6 +32,15 @@ local MFDExt_OwnPages = {
 	["MFDExt_ILS"] = true,
 	["MFDExt_Unclaimed"] = true,
 	["MFDExt_CAS"] = true,
+	-- ELEC bay (R3), three pages of our own - every one listed, same rule
+	-- as the BATT trio above.
+	["MFDExt_ELEC"] = true,
+	["MFDExt_ELEC_Sources"] = true,
+	["MFDExt_ELEC_Loads"] = true,
+	-- TCS bay (R4), three pages of our own - same rule.
+	["MFDExt_TCS"] = true,
+	["MFDExt_TCS_Loops"] = true,
+	["MFDExt_TCS_Reactors"] = true,
 }
 
 -- Hosted bays may register a function here, keyed by a page name, to
@@ -90,31 +99,24 @@ function MFDExt_ButtonA(monitorID)
 	end)
 end
 
--- Button B ("BMS" in our label row - RealBattery's Battery Management
--- System, renamed from "BATT" 2026-08-27, same function-not-mod-name
--- convention as FADEC/SWC). Incidentally fixes an upstream typo:
--- the host's own onClick sends "MAS_JSI_BasicMFD_Graphs" (missing "B_"),
--- which was never a registered page name - our override supplies the
--- correct target as its "host" branch. See CLAUDE.md 2026-08-14.
---
--- Three-page cycle (2026-09-15, CLAUDE.md log 82): MFDExt_BATT_EPS (a
--- vessel-wide EPS summary, the NEW entry page - so every OTHER MFDExt page
--- and every host page still land here first) -> MFDExt_BATT (per-vessel
--- telemetry, the bay's original L1) -> MFDExt_BATT_Fleet (fleet view) ->
--- back to MFDExt_BATT_EPS. The three fc.SetPersistent calls that actually
--- drive the chain live in RealBattery's own script, keyed by page name in
--- the shared MFDExt_OwnButtonOverrides table - this function only has to
--- list which pages belong to this bay.
-local MFDExt_BATT_Pages = {
-	["MFDExt_BATT_EPS"] = true,
-	["MFDExt_BATT"] = true,
-	["MFDExt_BATT_Fleet"] = true,
-}
+-- THEMATIC LAYOUT (2026-09-19, CLAUDE.md log 90; decided 2026-09-16 on the
+-- EICAS/ECAM model): top row = flight and command (SA, ILS, FADEC, SWC),
+-- bottom row = vessel systems (CAS, BMS, ELEC, TCS). Hosted bays are
+-- reached by PAGE NAME, so moving a bay to another button costs the
+-- hosting repos nothing - only this file and the hub's label row change.
+-- Every button keeps ITS OWN native host fallback, whatever bay it now
+-- carries: the fallback belongs to the physical key, not to the bay.
 
+-- Button B ("ILS" in our label row since 2026-09-19; BMS until then) -
+-- hosts NavInstruments, rescued from its own dead RPM-only patches (see
+-- Pages/MFDExt_ILS.cfg). Incidentally fixes an upstream typo: the host's
+-- own onClick sends "MAS_JSI_BasicMFD_Graphs" (missing "B_"), which was
+-- never a registered page name - our override supplies the correct target
+-- as its "host" branch. See CLAUDE.md 2026-08-14.
 function MFDExt_ButtonB(monitorID)
-	MFDExt_Redirect(monitorID, "MFDExt_BATT_EPS", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_ILS", function(id)
 		fc.SetPersistent(id, "MAS_JSI_BasicMFD_B_Graphs")
-	end, MFDExt_BATT_Pages)
+	end)
 end
 
 -- Button C ("KRAB" in our label row).
@@ -132,27 +134,24 @@ function MFDExt_ButtonD(monitorID)
 	end)
 end
 
--- Button E ("ILS" in our label row) - hosts NavInstruments, rescued from
--- its own dead RPM-only patches (see Pages/MFDExt_ILS.cfg). Native target
--- preserved when pressed from a host page, exactly like B/C.
+-- Buttons E and F - free since the 2026-09-19 reorder (E carried ILS from
+-- 2026-08-18, F carried CAS from 2026-08-19); both now share the
+-- Unclaimed placeholder like G, native targets preserved from a host page.
 function MFDExt_ButtonE(monitorID)
-	MFDExt_Redirect(monitorID, "MFDExt_ILS", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_Unclaimed", function(id)
 		fc.SetPersistent(id, "MAS_JSI_BasicMFD_E_VesselView")
 	end)
 end
 
--- Button F ("CAS" in our label row) - our own textual fault-summary page
--- (WARNING/CAUTION/ADVISORY), backed by MFDExtCasModule (src/Cas/). Claimed
--- 2026-08-19, first bottom/top slot to move out of the shared Unclaimed
--- placeholder.
 function MFDExt_ButtonF(monitorID)
-	MFDExt_Redirect(monitorID, "MFDExt_CAS", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_Unclaimed", function(id)
 		fc.SetPersistent(id, "MAS_JSI_BasicMFD_F_EngineIgnitor")
 	end)
 end
 
--- G and the bottom row (R1-R7 / NAV-ORB-DOCK-DATA-CREW-RSRC-EXT) still
--- aren't real bays - all eight share one placeholder page (MFDExt_Unclaimed)
+-- E, F, G and R5-R7 (CREW-RSRC-EXT) aren't real bays (R1-R4 are, below) -
+-- the six free ones share one
+-- placeholder page (MFDExt_Unclaimed)
 -- instead of leaking into the host's own ecosystem when pressed from
 -- inside our world (see Pages/MFDExt_Unclaimed.cfg for why that mattered).
 -- Native behavior outside our world is untouched, exactly like A-F: seven
@@ -166,28 +165,92 @@ function MFDExt_ButtonG(monitorID)
 	end)
 end
 
+-- R1 ("CAS" in our label row; on F from 2026-08-19 to 2026-09-19) - our own
+-- textual fault-summary page (WARNING/CAUTION/ADVISORY), backed by
+-- MFDExtCasModule (src/Cas/).
 function MFDExt_ButtonR1(monitorID) -- NAV
-	MFDExt_Redirect(monitorID, "MFDExt_Unclaimed", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_CAS", function(id)
 		fc.SetPersistent(id, "MAS_JSI_BasicMFD_1_Landing")
 	end)
 end
 
+-- R2 ("BMS" in our label row; on B until 2026-09-19) - RealBattery's
+-- Battery Management System (label renamed from "BATT" 2026-08-27, same
+-- function-not-mod-name convention as FADEC/SWC).
+--
+-- Three-page cycle (2026-09-15, CLAUDE.md log 82): MFDExt_BATT_EPS (a
+-- vessel-wide EPS summary, the entry page - so every OTHER MFDExt page and
+-- every host page land here first) -> MFDExt_BATT (per-vessel telemetry,
+-- the bay's original L1) -> MFDExt_BATT_Fleet (fleet view) -> back to
+-- MFDExt_BATT_EPS. The three fc.SetPersistent calls that actually drive
+-- the chain live in RealBattery's own script, keyed by page name in the
+-- shared MFDExt_OwnButtonOverrides table - this function only has to list
+-- which pages belong to this bay. R2's native host behavior is the one
+-- softkey-routed key of the bottom row (fc.SendSoftkey 17), replayed as is.
+local MFDExt_BATT_Pages = {
+	["MFDExt_BATT_EPS"] = true,
+	["MFDExt_BATT"] = true,
+	["MFDExt_BATT_Fleet"] = true,
+}
+
 function MFDExt_ButtonR2(monitorID) -- ORB
-	MFDExt_Redirect(monitorID, "MFDExt_Unclaimed", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_BATT_EPS", function(id)
 		fc.SendSoftkey(id, 17)
-	end)
+	end, MFDExt_BATT_Pages)
+end
+
+-- R3 ("ELEC" in our label row) - DynamicBatteryStorage's electrical ledger,
+-- backed by MFDExtElecModule (src/Elec/). Claimed 2026-09-17 (CLAUDE.md log
+-- 88). Three pages of our own on one button: SUMMARY -> SOURCES -> LOADS ->
+-- SUMMARY, the same ownPages/override chain RealBattery uses on B - except
+-- that here the overrides live in THIS script, since the bay is ours.
+local MFDExt_ELEC_Pages = {
+	["MFDExt_ELEC"] = true,
+	["MFDExt_ELEC_Sources"] = true,
+	["MFDExt_ELEC_Loads"] = true,
+}
+
+MFDExt_OwnButtonOverrides["MFDExt_ELEC"] = function(monitorID)
+	fc.SetPersistent(monitorID, "MFDExt_ELEC_Sources")
+end
+MFDExt_OwnButtonOverrides["MFDExt_ELEC_Sources"] = function(monitorID)
+	fc.SetPersistent(monitorID, "MFDExt_ELEC_Loads")
+end
+MFDExt_OwnButtonOverrides["MFDExt_ELEC_Loads"] = function(monitorID)
+	fc.SetPersistent(monitorID, "MFDExt_ELEC")
 end
 
 function MFDExt_ButtonR3(monitorID) -- DOCK
-	MFDExt_Redirect(monitorID, "MFDExt_Unclaimed", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_ELEC", function(id)
 		fc.SetPersistent(id, "MAS_JSI_BasicMFD_3_Docking")
-	end)
+	end, MFDExt_ELEC_Pages)
+end
+
+-- R4 ("TCS" in our label row, Thermal Control System) - SystemHeat's heat
+-- loops and reactors, backed by MFDExtTcsModule (src/Tcs/). Claimed
+-- 2026-09-18 (CLAUDE.md log 89). Three pages of our own on one button:
+-- SUMMARY -> LOOPS -> REACTORS -> SUMMARY, same ownPages/override chain as
+-- ELEC above.
+local MFDExt_TCS_Pages = {
+	["MFDExt_TCS"] = true,
+	["MFDExt_TCS_Loops"] = true,
+	["MFDExt_TCS_Reactors"] = true,
+}
+
+MFDExt_OwnButtonOverrides["MFDExt_TCS"] = function(monitorID)
+	fc.SetPersistent(monitorID, "MFDExt_TCS_Loops")
+end
+MFDExt_OwnButtonOverrides["MFDExt_TCS_Loops"] = function(monitorID)
+	fc.SetPersistent(monitorID, "MFDExt_TCS_Reactors")
+end
+MFDExt_OwnButtonOverrides["MFDExt_TCS_Reactors"] = function(monitorID)
+	fc.SetPersistent(monitorID, "MFDExt_TCS")
 end
 
 function MFDExt_ButtonR4(monitorID) -- DATA
-	MFDExt_Redirect(monitorID, "MFDExt_Unclaimed", function(id)
+	MFDExt_Redirect(monitorID, "MFDExt_TCS", function(id)
 		fc.SetPersistent(id, "MAS_JSI_BasicMFD_4_ShipInfo")
-	end)
+	end, MFDExt_TCS_Pages)
 end
 
 function MFDExt_ButtonR5(monitorID) -- CREW

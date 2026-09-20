@@ -41,18 +41,23 @@ implementation exists but is unverified and archived — see
 | Button | Bay | Status |
 |---|---|---|
 | A | SA (SituationalAwareness) | hello-world (real design not built yet) |
-| B | BMS (RealBattery) | working — 3-page cycle: EPS summary (L1) → per-vessel telemetry (L2) → fleet view (L3) |
+| B | ILS (NavInstruments) | bridged via `RPM_MODULE` |
 | C | FADEC (KRAB-9000) | hello-world (real design not built yet) |
 | D | SWC (KRILL) | hello-world (real design not built yet) |
-| E | ILS (NavInstruments) | bridged via `RPM_MODULE`, least battle-tested part of this release |
-| F | CAS | our own textual WARNING/CAUTION/ADVISORY fault summary (DangIt + FAR), see below |
-| G | — | unclaimed — shows the shared "unassigned slot" page, open for a future bay |
-| R1-R7 (NAV/ORB/DOCK/DATA/CREW/RSRC/EXT) | — | same shared "unassigned slot" page as G |
+| E, F, G | — | unclaimed — show the shared "unassigned slot" page, open for future bays |
+| R1 (NAV) | CAS | our own textual WARNING/CAUTION/ADVISORY fault summary (DangIt, FAR, RealBattery, SystemHeat), see below |
+| R2 (ORB) | BMS (RealBattery) | working — 3-page cycle: EPS summary (L1) → per-vessel telemetry (L2) → fleet view (L3) |
+| R3 (DOCK) | ELEC | our own 3-page electrical ledger read from DynamicBatteryStorage: summary (L1) → sources (L2) → loads (L3), see "The ELEC bay" below |
+| R4 (DATA) | TCS | our own 3-page thermal picture read from SystemHeat: summary (L1) → loops (L2) → reactors (L3), see "The TCS bay" below |
+| R5-R7 (CREW/RSRC/EXT) | — | same shared "unassigned slot" page as E-G |
 
-Order isn't arbitrary but isn't sacred either: A-D were reserved first for
-our own four mods when the project started, E was the first slot given to
-an external mod (NavInstruments) once the additive branch proved out. F/G
-and the bottom row are open for the next ones.
+The layout is thematic, on the EICAS/ECAM model (reordered 2026-09-19):
+**top row = flight and command** (situational awareness, approach, engine
+control, switching), **bottom row = vessel systems** (alerting, batteries,
+electrical, thermal). A bay is reached by page name, never by button, so
+moving one costs a hosting repo nothing — ILS moved from E to B and BMS
+from B to R2 without a line changing in NavInstruments or RealBattery.
+E, F, G and R5-R7 are open for the next ones.
 
 **On-screen labels name the function, not the mod** — same convention the
 host prop itself already uses (`AUTO`, `GRAPH`, `TRGT`: what a page does,
@@ -74,24 +79,25 @@ home (it's a genuine host page, not one of ours), not back to our hub, so
 the player had to re-enter through NEXT/PREV to get back. All nine
 redirected to one shared placeholder page (`Pages/MFDExt_Unclaimed.cfg`)
 when pressed from inside our world, exactly like a real bay would — their
-native behavior from a host page is untouched. F has since been claimed
-(see "The CAS bay" below); G and the bottom row still work this way.
+native behavior from a host page is untouched. R1-R4 have since been
+claimed (CAS, BMS, ELEC, TCS — see the sections below); E, F, G and R5-R7
+still work this way.
 Claiming one of these for a real bay means giving it its own
 `MFDExt_Button<X>` target instead of `MFDExt_Unclaimed`, same recipe as
 any other bay.
 
-## The CAS bay (F)
+## The CAS bay (R1)
 
 A self-contained example of a bay that ships entirely from THIS repo
 rather than a hosted mod's — useful as a reference if you want to add a
 bay of your own that isn't tied to an external mod.
 
 `MFDExt_CAS` is a text page (`Pages/MFDExt_CAS.cfg`): a WARNING/CAUTION/
-ADVISORY fault summary, reading DangIt failures, FAR stall warnings, and
-RealBattery runaway/overheat/end-of-life states via reflection
-(`src/Shared/DangItBridge.cs`, `src/Shared/FARBridge.cs`,
-`src/Shared/RealBatteryBridge.cs` — no compile-time reference to any of the
-three optional mods; source-linked into this DLL by the default SDK glob
+ADVISORY fault summary, reading DangIt failures, FAR stall warnings,
+RealBattery runaway/overheat/end-of-life states and SystemHeat thermal
+events via reflection (`src/Shared/DangItBridge.cs`, `src/Shared/FARBridge.cs`,
+`src/Shared/RealBatteryBridge.cs`, `src/Shared/SystemHeatReader.cs` — no
+compile-time reference to any of the four optional mods; source-linked into this DLL by the default SDK glob
 since `Shared/` sits under the same `src/` root, no explicit
 `<Compile Include>` needed here unlike Extras/VVEFIS, which is a separate
 project tree and does need one — see any of the three files' headers for
@@ -100,13 +106,21 @@ condition, and RealBattery's own charge level (SC_SOC)/disabled flag (see
 `src/Cas/CasAggregator.cs` for the reasoning) — this is an alert list, not
 a full status dashboard.
 
+The SystemHeat entries (since 2026-09-19) come from the same snapshot the
+TCS bay renders, on SystemHeat's own thresholds: a heat loop above nominal
+is `OVHT` (CAUTION, WARNING from 500 K over), a fission reactor core above
+its nominal temperature is `CORE` (CAUTION, WARNING above its critical
+one), `SCRAM` (inferred) and `MELTDWN` are WARNING, a damaged core
+(`INTEG`) and a cryo tank boiling off (`BOILOFF`) are ADVISORY. A loop
+merely heating up is not an alert — every reactor start-up does that.
+
 The page *layout* — scroll offset driven by the prop's own UP/DOWN/HOME
 keys, per-group expand/truncate/collapse (`+N MORE`, a collapsed
 `GROUP (N)` preview line for groups not yet reached), the bottom-anchored
 status line with `X-Y of N` and the key legend, marquee text for overlong
 titles — lives in `src/Pages/ScrollingListPage.cs`, a small UnityEngine-free
-engine shared by every text bay this repo ships (CAS today, the SystemHeat
-and DynamicBatteryStorage bays next). `CasAggregator` only collects the
+engine shared by every text bay this repo ships (CAS and ELEC today, the
+SystemHeat bay next). `CasAggregator` only collects the
 entries and renders one row each. If you build a bay of your own inside
 this repo, feed the engine a list of `ListGroup`s rather than re-deriving the
 row budget: this prop shows 40×20 (not the 40×32 MAS passes to a
@@ -164,10 +178,107 @@ differently, re-verify before reusing this guide as-is elsewhere.
 - Add your bay's page name to `MFDExt_OwnPages` and reuse `MFDExt_Redirect`
   for a new button — don't duplicate the branching logic by hand.
 
+## The ELEC bay (R3)
+
+Our own second built-in bay, and the first to use three pages on one button
+from inside this repo. It reads
+[DynamicBatteryStorage](https://github.com/post-kerbin-mining-corporation/DynamicBatteryStorage)
+("Systems Monitor") by reflection and shows its electrical ledger:
+
+- **ELEC SUMMARY** (`MFDExt_ELEC`) — net flow, generated/consumed, EC level,
+  DBS's timewarp buffer state, top loads and top sources.
+- **ELEC SOURCES** (`MFDExt_ELEC_Sources`) and **ELEC LOADS**
+  (`MFDExt_ELEC_Loads`) — every part feeding or drawing from the bus, grouped
+  by DBS's own categories with a subtotal each, scrollable. Handlers that fit
+  none of DBS's categories land in an `OTHER` group instead of disappearing
+  the way they do in DBS's own window; parts currently reading zero are
+  counted (`+N IDLE`) rather than listed.
+
+Press **R3** to cycle the three pages; **NEXT** / **PREV** also step forward /
+backward through them (plain per-page `softkey = 7` / `8` entries in the
+three page files, independent of the R3 cycle). The **ENTER**
+key (the green left arrow) switches the ledger, per monitor, between two
+modes:
+
+- **PLANT** (default) keeps DBS's "Batteries" category (RealBattery packs,
+  discharge capacitors) OUT of the totals and shows it on its own `STORAGE`
+  row. DBS books a charging battery as a consumer and a discharging one as a
+  producer, so with RealBattery installed its own net figure sits near zero by
+  construction — storage always absorbs or supplies the balance — and says
+  nothing about whether the plant itself is in surplus or deficit.
+- **TOTAL** counts everything, i.e. exactly what DBS's own window shows.
+
+On a vessel with no such storage the two modes are identical and the key hint
+is hidden.
+
+Division of labour with BMS (RealBattery's bay): ELEC hides its own
+time-to-empty estimate as soon as RealBattery is detected — BMS already has
+a better one (worst discharging pack, not a linear EC / net guess), and two
+different figures under the same name one key apart would only confuse. The
+mirror half (BMS dropping its EC level row when DynamicBatteryStorage is
+present, since ELEC shows it) is RealBattery's to ship from its own repo.
+
+Wiring, for anyone building a multi-page bay of their own here: the three
+`MAS_PAGE`s are ungated (the "not detected" message is produced by the module,
+not by a `NEEDS` variant), all three are listed in `MFDExt_OwnPages` and in
+the bay's own `ownPages` set, the page-to-page jumps are three
+`MFDExt_OwnButtonOverrides` entries in `Scripts/MFDExt.lua`, and ONE
+`MFDExtElecModule` instance serves all three pages — each page's `TEXT` names
+its own `textmethod` and each page's `RPM_MODULE` its own
+`buttonClickMethod`, which is what gives every page an independent scroll
+position.
+
+## The TCS bay (R4)
+
+Our own third built-in bay, Thermal Control System. It reads
+[SystemHeat](https://github.com/post-kerbin-mining-corporation/SystemHeat) by
+reflection (`src/Shared/SystemHeatReader.cs`, shared so CAS can pick up
+thermal events later) and shows the vessel's thermal picture:
+
+- **TCS SUMMARY** (`MFDExt_TCS`) — heat generated and rejected over the
+  whole vessel, one row per heat loop (temperature vs nominal, net flux, a
+  `NOMINAL` / `HEATING` / `OVERTEMP` / `CRITICAL` status), then reactor,
+  cryo-tank (with boil-off) and heat-sink counts, each row only when the
+  vessel has any.
+- **TCS LOOPS** (`MFDExt_TCS_Loops`) — one scrollable group per loop, header
+  colored by status, members underneath: sources with what they add, sinks
+  with what the loop actually allocated to them this frame (a radiator at
+  `0 kW` in a balanced loop is spare capacity, and reads as such). Members
+  with no flux at all (RealBattery's volume-only modules, cryo tanks not
+  boiling) are counted on a closing `(+N idle)` row instead of listed.
+- **TCS REACTORS** (`MFDExt_TCS_Reactors`) — one four-row block per
+  reactor: state (`ON` / `OFF` / `HIBERN` / `SCRAM` / `MELTDOWN`), electrical
+  and heat output, core temperature vs nominal, throttle, core integrity,
+  fuel life (recomputed from the part's config, formatted in the game's own
+  calendar; `FUEL n%` when the reactor isn't burning). Far Future
+  Technologies fusion reactors get a degraded block (state incl. `CHARGING`,
+  power, heat, outlet temperature, charge) read the same way SystemHeat's
+  own reactor panel reads them.
+
+Thresholds and colors are SystemHeat's own, not ours: flux amber when
+positive, `OVERTEMP` at nominal + 0.5 K (its red pulsing border),
+`HEATING` at a net flux above 0.05 kW (its amber one), `CRITICAL` at 500 K
+over nominal (its Engineer's Report level); a reactor core reads amber above
+its nominal temperature and red above its critical one. `SCRAM` is
+inferred (reactor off with the core still above its safety override —
+SystemHeat keeps no flag for it) and reverts to `OFF` once the core cools.
+
+Only numeric members are read: every `*Status` / `*UI` string on
+SystemHeat's modules is refreshed only while the part's PAW is open, so in
+IVA they are stale by construction.
+
+Press **R4** to cycle the three pages; **NEXT** / **PREV** also step through
+them (same per-page `softkey = 7` / `8` mechanism as ELEC).
+UP/DOWN scroll the two list pages, HOME returns to the top; the summary
+binds no key. Wiring is identical to ELEC's (three ungated `MAS_PAGE`s, all
+three in `MFDExt_OwnPages` and in the bay's own `ownPages` set, three
+`MFDExt_OwnButtonOverrides` entries, ONE `MFDExtTcsModule` instance for the
+three pages).
+
 ## Adding a new bay
 
-1. **Pick a free slot** (F, G, or any of R1-R7/NAV-ORB-DOCK-DATA-CREW-RSRC-EXT
-   today — all currently point to the shared `MFDExt_Unclaimed` placeholder).
+1. **Pick a free slot** (E, F, G or any of R5-R7 today — all currently point
+   to the shared `MFDExt_Unclaimed` placeholder).
 2. **Write your `MAS_PAGE`**, gated `NEEDS[!YourAssembly]` — see
    "Not-detected placeholder" below if you don't have real content yet.
    **Never** also add a `NEEDS[YourAssembly]` variant here once your own
@@ -250,7 +361,7 @@ instead of back to the entry page until its name was added.
 ### Chaining through three or more of your own pages
 
 A single override on your entry page is enough for a two-page toggle (press
-B: go deeper; press B again from anywhere else: come back — this was the
+your button: go deeper; press it again from anywhere else: come back — this was the
 whole mechanism for RealBattery's bay until 2026-09-15). It stops being
 enough once you want a real forward cycle across three or more pages
 (L1 → L2 → L3 → L1), because the default fallback ("any other page of ours
@@ -427,13 +538,13 @@ way.
 
 ## Status of this release
 
-The hub, navigation, ILS, and CAS all have real functionality, and so does
+The hub, navigation, ILS, CAS, ELEC and TCS all have real functionality, and so does
 BMS (RealBattery) — a real 3-page cycle (EPS summary, per-vessel telemetry,
 fleet view), not just a hello-world. SA, FADEC, and SWC ship only a hello-world confirmation page
 from their own repositories so far (end-to-end proof that registration +
 button routing + content all work) — their actual designed content lands
 whenever each one is ready, following the "adding a new bay" recipe above;
 the "not detected" placeholder shown in this section only ever applies when
-the corresponding mod isn't installed at all. G and the bottom row are
+the corresponding mod isn't installed at all. E, F, G and R5-R7 are
 unclaimed, showing the shared "unassigned slot" page rather than leaking
 into the host's own ecosystem.
