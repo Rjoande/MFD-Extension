@@ -6,7 +6,7 @@
     <LangVersion>8.0</LangVersion>
     <AssemblyName>MFDExtension</AssemblyName>
     <RootNamespace>MFDExtension</RootNamespace>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
     <DebugType>none</DebugType>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <!-- KSP install the reference assemblies come from. Defaults to the game

@@ -1,4 +1,4 @@
-MFD EXTENDED  v0.4.1
+MFD EXTENDED  v0.4.2
 ====================
 
 An additive "second world" for an existing RasterPropMonitor / MOARdV's
@@ -76,7 +76,10 @@ Electrical, ELEC (R3)
   between PLANT (batteries kept out of the totals and shown on their own
   STORAGE row; with Real Battery installed DynamicBatteryStorage's own net
   figure sits near zero, because storage always absorbs or supplies the
-  balance) and TOTAL (DynamicBatteryStorage's own numbers).
+  balance) and TOTAL (DynamicBatteryStorage's own numbers). RIGHT and LEFT
+  switch the lists and the summary's top sections between one row per part
+  and one row per group of identical parts ("(6) OX-STAT-XL Photovoltaic
+  Panel", values summed); compact is the default.
 
 Thermal Control System, TCS (R4)
   The vessel's thermal picture on three pages (press R4 to cycle, or step
@@ -87,8 +90,10 @@ Thermal Control System, TCS (R4)
   loop actually allocated to each radiator or sink), then every reactor
   (state, power, heat, core temperature, throttle, core integrity, fuel life).
   Fusion reactors from Far Future Technologies are listed too, with what
-  SystemHeat's own panel reads from them. Says so plainly if SystemHeat isn't
-  installed.
+  SystemHeat's own panel reads from them. On the loops page RIGHT and LEFT
+  switch between one row per part and one row per group of identical parts
+  ("(6) Thermal Control System (large)", fluxes summed); compact is the
+  default. Says so plainly if SystemHeat isn't installed.
 
 
 EXTRAS (OPTIONAL)

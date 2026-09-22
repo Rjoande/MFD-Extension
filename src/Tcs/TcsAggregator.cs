@@ -94,7 +94,7 @@ namespace MFDExtension.Tcs
             public readonly TextCache Text = new TextCache();
         }
 
-        private static readonly ListView loopsView = new ListView();
+        private static readonly ListView[] loopsViews = { new ListView(), new ListView() }; // [expanded, compact]
         private static readonly ListView reactorsView = new ListView();
         private static readonly TextCache summaryText = new TextCache();
 
@@ -296,9 +296,33 @@ namespace MFDExtension.Tcs
         }
 
         // ---- loops page ---------------------------------------------------------
-        private static ListView GetLoopsView(SystemHeatSnapshot data)
+        // Members folded by part in the compact view: one list per loop, reused
+        // across rebuilds and kept alive by the render closures below.
+        private static readonly List<List<CollapsedEntry<HeatMember>>> compactMembers =
+            new List<List<CollapsedEntry<HeatMember>>>();
+
+        private static readonly Func<HeatMember, string> MemberKey = member => member.Key;
+        private static readonly Func<HeatMember, double> MemberFlux = member => member.Flux;
+
+        // Same ranking SystemHeatReader gives the raw members - sources first,
+        // then sinks, each by magnitude - applied to the summed rows.
+        private static int CompareCollapsedMembers(CollapsedEntry<HeatMember> a, CollapsedEntry<HeatMember> b)
         {
-            ListView view = loopsView;
+            bool sourceA = a.Sum > 0.0, sourceB = b.Sum > 0.0;
+            if (sourceA != sourceB) return sourceA ? -1 : 1;
+            int byValue = Math.Abs(b.Sum).CompareTo(Math.Abs(a.Sum));
+            return byValue != 0 ? byValue : string.CompareOrdinal(a.Sample.Title, b.Sample.Title);
+        }
+
+        private static List<CollapsedEntry<HeatMember>> MemberBuffer(int index)
+        {
+            while (compactMembers.Count <= index) compactMembers.Add(new List<CollapsedEntry<HeatMember>>());
+            return compactMembers[index];
+        }
+
+        private static ListView GetLoopsView(SystemHeatSnapshot data, bool compact)
+        {
+            ListView view = loopsViews[compact ? 1 : 0];
             if (view.Version == snapshotVersion) return view;
             view.Version = snapshotVersion;
             view.Groups.Clear();
@@ -308,14 +332,30 @@ namespace MFDExtension.Tcs
                 HeatLoopInfo loop = data.Loops[i];
                 LoopStatus status = StatusOf(loop);
                 int idleRow = loop.Idle > 0 ? 1 : 0;
+
+                int count;
+                Action<StringBuilder, int, int> render;
+                if (compact)
+                {
+                    List<CollapsedEntry<HeatMember>> members = MemberBuffer(i);
+                    EntryCollapser.Collapse(loop.Members, members, MemberKey, MemberFlux, CompareCollapsedMembers);
+                    count = members.Count + idleRow;
+                    render = (sb, index, width) => RenderCollapsedMember(sb, loop, members, index, width);
+                }
+                else
+                {
+                    count = loop.Members.Count + idleRow;
+                    render = (sb, index, width) => RenderMember(sb, loop, index, width);
+                }
+
                 view.Groups.Add(new ListGroup
                 {
                     Label = "LOOP " + loop.Id.ToString(Inv),
                     ColorTag = StatusTag(status),
                     HeaderRight = loop.Temperature.ToString("F0", Inv).PadLeft(4) + "/" + loop.NominalTemperature.ToString("F0", Inv).PadLeft(4)
                                   + " K  " + ArrowFor(loop.NetFlux) + " " + FormatFlux(Math.Abs(loop.NetFlux)),
-                    Count = loop.Members.Count + idleRow,
-                    RenderEntry = (sb, index, width) => RenderMember(sb, loop, index, width),
+                    Count = count,
+                    RenderEntry = render,
                 });
             }
             return view;
@@ -331,16 +371,38 @@ namespace MFDExtension.Tcs
                 return;
             }
             HeatMember member = loop.Members[index];
-            int titleBudget = screenWidth - ScrollingListPage.EntryIndent - 1 - 1 - FluxWidth - 2;
-            sb.Append(' ', ScrollingListPage.EntryIndent)
-              .Append(member.Flux > 0f ? '▲' : '▼').Append(' ')
-              .Append(FormatFlux(Math.Abs(member.Flux)))
-              .Append("  ")
-              .Append(ScrollingListPage.Marquee(member.Title, titleBudget, Time.realtimeSinceStartup))
-              .Append(NL);
+            AppendMemberRow(sb, member.Title, member.Flux, 0, screenWidth);
         }
 
-        internal static string BuildLoopsPage(Vessel vessel, int screenWidth, ref int scrollOffset)
+        //   "  ▼  0 kW  (6) Thermal radiator"  - the six identical
+        //   members of a symmetry group on one row, flux summed.
+        private static void RenderCollapsedMember(StringBuilder sb, HeatLoopInfo loop, List<CollapsedEntry<HeatMember>> members,
+                                                  int index, int screenWidth)
+        {
+            if (index >= members.Count)
+            {
+                sb.Append(' ', ScrollingListPage.EntryIndent).Append(DimTag).Append("(+").Append(loop.Idle).Append(" idle)").Append(ResetTag).Append(NL);
+                return;
+            }
+            CollapsedEntry<HeatMember> entry = members[index];
+            AppendMemberRow(sb, entry.Sample.Title, (float)entry.Sum, entry.Count, screenWidth);
+        }
+
+        // The count prefix eats into the title column only, so flux stays in
+        // its own field whether the row is folded or not.
+        private static void AppendMemberRow(StringBuilder sb, string title, float flux, int count, int screenWidth)
+        {
+            int titleBudget = screenWidth - ScrollingListPage.EntryIndent - 1 - 1 - FluxWidth - 2
+                              - EntryCollapser.CountPrefixWidth(count);
+            sb.Append(' ', ScrollingListPage.EntryIndent)
+              .Append(flux > 0f ? '▲' : '▼').Append(' ')
+              .Append(FormatFlux(Math.Abs(flux)))
+              .Append("  ");
+            EntryCollapser.AppendCountPrefix(sb, count);
+            sb.Append(ScrollingListPage.Marquee(title, titleBudget, Time.realtimeSinceStartup)).Append(NL);
+        }
+
+        internal static string BuildLoopsPage(Vessel vessel, bool compact, int screenWidth, ref int scrollOffset)
         {
             const string title = "TCS LOOPS";
             string fallback = UnavailablePage(vessel, title, screenWidth);
@@ -349,7 +411,7 @@ namespace MFDExtension.Tcs
             SystemHeatSnapshot data = GetSnapshot(vessel);
             if (!data.HasData) return NoDataPage(title, screenWidth);
 
-            ListView view = GetLoopsView(data);
+            ListView view = GetLoopsView(data, compact);
             int step = MarqueeStep();
             string cached = view.Text.Get(snapshotVersion, scrollOffset, screenWidth, step);
             if (cached != null) return cached;
@@ -372,8 +434,21 @@ namespace MFDExtension.Tcs
                 return view.Text.Set(snapshotVersion, scrollOffset, screenWidth, step, sb.ToString());
             }
 
-            ScrollingListPage.AppendBodyAndStatus(sb, view.Groups, ref scrollOffset, screenWidth, false);
+            ScrollingListPage.AppendBodyAndStatus(sb, view.Groups, ref scrollOffset, screenWidth, false,
+                                                  LoopHints(compact));
             return view.Text.Set(snapshotVersion, scrollOffset, screenWidth, step, sb.ToString());
+        }
+
+        private static readonly List<KeyHint> loopHints = new List<KeyHint>(3);
+
+        private static List<KeyHint> LoopHints(bool compact)
+        {
+            loopHints.Clear();
+            loopHints.Add(new KeyHint(compact ? ScrollingListPage.ExpandHint : ScrollingListPage.CompactHint,
+                                      ScrollingListPage.DensityPriority));
+            loopHints.Add(new KeyHint(ScrollingListPage.ScrollHint, ScrollingListPage.ScrollPriority));
+            loopHints.Add(new KeyHint(ScrollingListPage.HomeHint, ScrollingListPage.HomePriority));
+            return loopHints;
         }
 
         // ---- reactors page ------------------------------------------------------
@@ -517,12 +592,12 @@ namespace MFDExtension.Tcs
         }
 
         // ---- scrolling ----------------------------------------------------------
-        internal static void TryScrollDown(Vessel vessel, bool reactors, ref int scrollOffset)
+        internal static void TryScrollDown(Vessel vessel, bool reactors, bool compact, ref int scrollOffset)
         {
             if (vessel == null || !SystemHeatReader.IsAvailable) return;
             SystemHeatSnapshot data = GetSnapshot(vessel);
             if (!data.HasData) return;
-            ListView view = reactors ? GetReactorsView(data) : GetLoopsView(data);
+            ListView view = reactors ? GetReactorsView(data) : GetLoopsView(data, compact);
             ScrollingListPage.TryScrollDown(view.Groups, ref scrollOffset);
         }
 

@@ -126,6 +126,20 @@ this repo, feed the engine a list of `ListGroup`s rather than re-deriving the
 row budget: this prop shows 40×20 (not the 40×32 MAS passes to a
 `textmethod`), and rows past the 20th are silently dropped.
 
+Two helpers come with it:
+
+- `src/Pages/EntryCollapser.cs` folds entries sharing a key into one row
+  carrying `(N)` and the summed contribution, which is what keeps a vessel's
+  symmetry groups from spending a whole page on identical lines. Fold on the
+  view side, before the `ListGroup`s are built: `Count` must be the number of
+  rows the engine will actually print, or scroll offsets and `+N MORE` go
+  wrong. Key on something culture-invariant (part id plus module name), never
+  on the displayed title.
+- The status line also takes an ordered `KeyHint` list instead of a legend
+  string: hints are printed in the order given and dropped by priority
+  (`ScrollPriority` … `HomePriority`) until what is left fits beside
+  `X-Y of N`. A key whose hint was dropped still works.
+
 Two things make this bay different from A-E:
 
 - **Its `MAS_PAGE` is ungated** (`Pages/MFDExt_CAS.cfg`) — unlike SA/BATT/
@@ -211,6 +225,13 @@ modes:
 On a vessel with no such storage the two modes are identical and the key hint
 is hidden.
 
+The **RIGHT** / **LEFT** keys switch the two lists and the summary's
+`TOP LOADS` / `TOP SOURCES` digest between one row per part and one row per
+group of identical parts — `(6) Thermal Radiator (large)` with the six
+values summed. Compact is the default, per monitor; RIGHT expands, LEFT
+folds again, and the legend names whichever of the two the key would do
+next.
+
 Division of labour with BMS (RealBattery's bay): ELEC hides its own
 time-to-empty estimate as soon as RealBattery is detected — BMS already has
 a better one (worst discharging pack, not a linear EC / net guess), and two
@@ -246,6 +267,10 @@ thermal events later) and shows the vessel's thermal picture:
   `0 kW` in a balanced loop is spare capacity, and reads as such). Members
   with no flux at all (RealBattery's volume-only modules, cryo tanks not
   boiling) are counted on a closing `(+N idle)` row instead of listed.
+  **RIGHT** / **LEFT** switch between one row per part and one row per group
+  of identical parts (`(6) Thermal Radiator (large)`, fluxes summed), compact
+  by default; the REACTORS page keeps one block per unit, since core
+  temperature, integrity and fuel life do not sum.
 - **TCS REACTORS** (`MFDExt_TCS_Reactors`) — one four-row block per
   reactor: state (`ON` / `OFF` / `HIBERN` / `SCRAM` / `MELTDOWN`), electrical
   and heat output, core temperature vs nominal, throttle, core integrity,
@@ -269,8 +294,8 @@ IVA they are stale by construction.
 
 Press **R4** to cycle the three pages; **NEXT** / **PREV** also step through
 them (same per-page `softkey = 7` / `8` mechanism as ELEC).
-UP/DOWN scroll the two list pages, HOME returns to the top; the summary
-binds no key. Wiring is identical to ELEC's (three ungated `MAS_PAGE`s, all
+UP/DOWN scroll the two list pages, RIGHT/LEFT set the density of LOOPS,
+HOME returns to the top; the summary binds no key. Wiring is identical to ELEC's (three ungated `MAS_PAGE`s, all
 three in `MFDExt_OwnPages` and in the bay's own `ownPages` set, three
 `MFDExt_OwnButtonOverrides` entries, ONE `MFDExtTcsModule` instance for the
 three pages).

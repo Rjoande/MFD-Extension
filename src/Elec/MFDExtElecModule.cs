@@ -20,11 +20,15 @@ namespace MFDExtension.Elec
         public int buttonDown = 1;
         [KSPField]
         public int buttonHome = 4;  // the white circle
+        [KSPField]
+        public int buttonExpand = 5;   // RIGHT, one row per part
+        [KSPField]
+        public int buttonCompact = 6;  // LEFT, symmetry groups folded into one row
 
-        // Per-prop-instance state (a second ELEC monitor on the same vessel
-        // scrolls and switches mode independently). Not persisted: a fresh
-        // IVA always starts in PLANT mode at the top of each list.
+        // Per-prop-instance state, not persisted: a fresh IVA starts in PLANT
+        // mode, compact, at the top of each list.
         private bool totalMode;
+        private bool compact = true;
         private int sourcesOffset;
         private int loadsOffset;
 
@@ -35,23 +39,27 @@ namespace MFDExtension.Elec
 
         public string GetSummaryText(int screenWidth, int screenHeight)
         {
-            return ElecAggregator.BuildSummaryPage(CurrentVessel, totalMode, screenWidth);
+            return ElecAggregator.BuildSummaryPage(CurrentVessel, totalMode, compact, screenWidth);
         }
 
         public string GetSourcesText(int screenWidth, int screenHeight)
         {
-            return ElecAggregator.BuildListPage(CurrentVessel, ElecSide.Sources, totalMode, screenWidth, ref sourcesOffset);
+            return ElecAggregator.BuildListPage(CurrentVessel, ElecSide.Sources, totalMode, compact, screenWidth,
+                                                ref sourcesOffset);
         }
 
         public string GetLoadsText(int screenWidth, int screenHeight)
         {
-            return ElecAggregator.BuildListPage(CurrentVessel, ElecSide.Loads, totalMode, screenWidth, ref loadsOffset);
+            return ElecAggregator.BuildListPage(CurrentVessel, ElecSide.Loads, totalMode, compact, screenWidth,
+                                                ref loadsOffset);
         }
 
-        // The summary is static: only the mode key does anything.
+        // The summary scrolls nothing, but its TOP LOADS / TOP SOURCES digest
+        // folds like the lists do, so both mode and density apply.
         public void SummaryButtons(int buttonID)
         {
             if (buttonID == buttonMode) ToggleMode();
+            else if (buttonID == buttonExpand || buttonID == buttonCompact) SetCompact(buttonID == buttonCompact);
         }
 
         public void SourcesButtons(int buttonID)
@@ -70,9 +78,13 @@ namespace MFDExtension.Elec
             {
                 ToggleMode();
             }
+            else if (buttonID == buttonExpand || buttonID == buttonCompact)
+            {
+                SetCompact(buttonID == buttonCompact);
+            }
             else if (buttonID == buttonDown)
             {
-                ElecAggregator.TryScrollDown(CurrentVessel, side, totalMode, ref scrollOffset);
+                ElecAggregator.TryScrollDown(CurrentVessel, side, totalMode, compact, ref scrollOffset);
             }
             else if (buttonID == buttonUp)
             {
@@ -89,6 +101,16 @@ namespace MFDExtension.Elec
         private void ToggleMode()
         {
             totalMode = !totalMode;
+            sourcesOffset = 0;
+            loadsOffset = 0;
+        }
+
+        // Row i means a different entry once rows are folded, so the offsets
+        // restart with the view.
+        private void SetCompact(bool value)
+        {
+            if (compact == value) return;
+            compact = value;
             sourcesOffset = 0;
             loadsOffset = 0;
         }

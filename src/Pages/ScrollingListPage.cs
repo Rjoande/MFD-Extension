@@ -22,6 +22,21 @@ namespace MFDExtension.Pages
         public Action<StringBuilder, int, int> RenderEntry;
     }
 
+    // One key hint on the status line. A page binds more keys than fit in 40
+    // columns, so hints are declared in reading order and dropped by
+    // Priority (highest value first, rightmost on a tie) until the line fits.
+    internal struct KeyHint
+    {
+        public string Text;  // may carry inline color tags, always measured with VisibleLength
+        public int Priority; // lower survives longer
+
+        public KeyHint(string text, int priority)
+        {
+            Text = text;
+            Priority = priority;
+        }
+    }
+
     // The scroll/collapse engine shared by the CAS, ELEC and TCS bays: the fit
     // test, "+N MORE" truncation, a collapsed "LABEL (N)" line for groups not
     // yet reached, and the refusal to scroll past the last full screen.
@@ -47,7 +62,22 @@ namespace MFDExtension.Pages
 
         // Key legend, right-flushed on the status line; both glyphs are
         // confirmed to render in the monitor's font.
-        public const string KeyLegend = "▲▼: scroll  ○: home";
+        public const string ScrollHint = "▲▼: scroll";
+        public const string HomeHint = "○: home";
+        // Density keys, shared vocabulary: each hint names what the key does
+        // FROM the current view, which is also how a page says which view it
+        // is in. RIGHT expands, LEFT compacts.
+        public const string ExpandHint = "►: exp";
+        public const string CompactHint = "◄: cpt";
+        public const string HintSeparator = "  ";
+        public const string KeyLegend = ScrollHint + HintSeparator + HomeHint;
+
+        // Drop order when a page binds more keys than the line holds: scrolling
+        // is the page's own verb, HOME the one a player can do by scrolling up.
+        public const int ScrollPriority = 0;
+        public const int DensityPriority = 1;
+        public const int ModePriority = 2;
+        public const int HomePriority = 3;
 
         // MdVTextMesh splits rows on Environment.NewLine ONLY: with a bare
         // '\n' the whole page renders as one clipped row, silently. Never
@@ -86,6 +116,21 @@ namespace MFDExtension.Pages
         public static void AppendBodyAndStatus(StringBuilder sb, IList<ListGroup> groups, ref int scrollOffset,
                                                int screenWidth, bool showEmptyGroups, string keyLegend)
         {
+            AppendBodyAndStatus(sb, groups, ref scrollOffset, screenWidth, showEmptyGroups, keyLegend, null);
+        }
+
+        // Same, with the legend given as hints the status line may drop: a page
+        // binding scroll, home, a mode and a density key wants four hints on a
+        // row that holds two or three of them.
+        public static void AppendBodyAndStatus(StringBuilder sb, IList<ListGroup> groups, ref int scrollOffset,
+                                               int screenWidth, bool showEmptyGroups, IList<KeyHint> hints)
+        {
+            AppendBodyAndStatus(sb, groups, ref scrollOffset, screenWidth, showEmptyGroups, null, hints);
+        }
+
+        private static void AppendBodyAndStatus(StringBuilder sb, IList<ListGroup> groups, ref int scrollOffset,
+                                                int screenWidth, bool showEmptyGroups, string keyLegend, IList<KeyHint> hints)
+        {
             ClampOffset(groups, ref scrollOffset);
             int total = TotalEntries(groups);
 
@@ -96,7 +141,7 @@ namespace MFDExtension.Pages
                 sb.Append(NL);
             }
             sb.Append('-', screenWidth).Append(NL);
-            AppendStatusLine(sb, total, scrollOffset, entriesShown, screenWidth, keyLegend);
+            AppendStatusLine(sb, total, scrollOffset, entriesShown, screenWidth, keyLegend, hints);
         }
 
         // The DOWN button's decision of whether to advance at all. Never pushes
@@ -275,13 +320,16 @@ namespace MFDExtension.Pages
             return rowsNeeded <= BodyBudget;
         }
 
-        // "X-Y of N" on the left, key legend flushed right.
+        // "X-Y of N" on the left, key legend flushed right. With `hints` the
+        // legend is assembled to fit what the position string leaves free.
         private static void AppendStatusLine(StringBuilder sb, int total, int scrollOffset, int entriesShown, int screenWidth,
-                                             string keyLegend)
+                                             string keyLegend, IList<KeyHint> hints)
         {
             int first = scrollOffset + 1;
             int last = scrollOffset + entriesShown;
             string position = first + "-" + last + " of " + total;
+
+            if (hints != null) keyLegend = FitHints(hints, screenWidth - position.Length - 1);
 
             // The legend may carry inline color tags (ELEC colors its mode
             // key), so measure what is VISIBLE, not the raw string length.
@@ -294,6 +342,46 @@ namespace MFDExtension.Pages
             string line = position + " " + StripColorTags(keyLegend); // overflow: plain text, cut at the edge
             if (line.Length > screenWidth) line = line.Substring(0, screenWidth);
             sb.Append(line);
+        }
+
+        // Joins the hints in the order given, dropping the least important
+        // ones until what is left fits `available` visible columns. A key
+        // whose hint was dropped still works.
+        private static readonly List<KeyHint> fitBuffer = new List<KeyHint>(4);
+
+        public static string FitHints(IList<KeyHint> hints, int available)
+        {
+            fitBuffer.Clear();
+            for (int i = 0; i < hints.Count; ++i)
+            {
+                if (!string.IsNullOrEmpty(hints[i].Text)) fitBuffer.Add(hints[i]);
+            }
+
+            while (fitBuffer.Count > 0 && JoinedLength(fitBuffer) > available)
+            {
+                int worst = 0;
+                for (int i = 1; i < fitBuffer.Count; ++i)
+                {
+                    if (fitBuffer[i].Priority >= fitBuffer[worst].Priority) worst = i;
+                }
+                fitBuffer.RemoveAt(worst);
+            }
+            if (fitBuffer.Count == 0) return string.Empty;
+
+            StringBuilder legend = new StringBuilder(available);
+            for (int i = 0; i < fitBuffer.Count; ++i)
+            {
+                if (i > 0) legend.Append(HintSeparator);
+                legend.Append(fitBuffer[i].Text);
+            }
+            return legend.ToString();
+        }
+
+        private static int JoinedLength(IList<KeyHint> hints)
+        {
+            int length = HintSeparator.Length * (hints.Count - 1);
+            for (int i = 0; i < hints.Count; ++i) length += VisibleLength(hints[i].Text);
+            return length;
         }
 
         // Inline color tags are exactly "[#RRGGBBAA]" (11 chars) everywhere

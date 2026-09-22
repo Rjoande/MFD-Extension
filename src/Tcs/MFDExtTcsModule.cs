@@ -18,8 +18,15 @@ namespace MFDExtension.Tcs
         public int buttonDown = 1;
         [KSPField]
         public int buttonHome = 4;  // the white circle
+        [KSPField]
+        public int buttonExpand = 5;   // RIGHT, one row per part
+        [KSPField]
+        public int buttonCompact = 6;  // LEFT, symmetry groups folded into one row
 
-        // Per-prop-instance state, not persisted.
+        // Per-prop-instance state, not persisted. Lists start compact: a
+        // vessel's symmetry groups would otherwise spend the whole page on
+        // identical rows before the player can press anything.
+        private bool compact = true;
         private int loopsOffset;
         private int reactorsOffset;
 
@@ -35,7 +42,7 @@ namespace MFDExtension.Tcs
 
         public string GetLoopsText(int screenWidth, int screenHeight)
         {
-            return TcsAggregator.BuildLoopsPage(CurrentVessel, screenWidth, ref loopsOffset);
+            return TcsAggregator.BuildLoopsPage(CurrentVessel, compact, screenWidth, ref loopsOffset);
         }
 
         public string GetReactorsText(int screenWidth, int screenHeight)
@@ -45,6 +52,13 @@ namespace MFDExtension.Tcs
 
         public void LoopsButtons(int buttonID)
         {
+            // Only LOOPS folds rows: a reactor block carries per-unit core
+            // temperature, integrity and fuel life, which do not sum.
+            if (buttonID == buttonExpand || buttonID == buttonCompact)
+            {
+                SetCompact(buttonID == buttonCompact);
+                return;
+            }
             ListButtons(buttonID, false, ref loopsOffset);
         }
 
@@ -53,11 +67,20 @@ namespace MFDExtension.Tcs
             ListButtons(buttonID, true, ref reactorsOffset);
         }
 
+        // Row i means a different member in the two views, so the offset can't
+        // carry over - same rule ELEC applies to its ledger mode.
+        private void SetCompact(bool value)
+        {
+            if (compact == value) return;
+            compact = value;
+            loopsOffset = 0;
+        }
+
         private void ListButtons(int buttonID, bool reactors, ref int scrollOffset)
         {
             if (buttonID == buttonDown)
             {
-                TcsAggregator.TryScrollDown(CurrentVessel, reactors, ref scrollOffset);
+                TcsAggregator.TryScrollDown(CurrentVessel, reactors, compact, ref scrollOffset);
             }
             else if (buttonID == buttonUp)
             {

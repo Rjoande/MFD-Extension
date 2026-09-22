@@ -61,7 +61,6 @@ namespace MFDExtension.Elec
         // drawn on the physical ENTER key. Its color tags make the raw string
         // longer than what shows - always measure it with VisibleLength.
         private const string ModeLegend = GreenTag + "\u2190" + ResetTag + ": mode";
-        private const string ListLegendWithMode = ModeLegend + "  " + ScrollingListPage.KeyLegend;
 
         private static readonly string NL = ScrollingListPage.NL;
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
@@ -135,11 +134,27 @@ namespace MFDExtension.Elec
             return (int)(Time.realtimeSinceStartup * ScrollingListPage.MarqueeCharsPerSecond);
         }
 
-        private static readonly ListView[] views = { new ListView(), new ListView(), new ListView(), new ListView() };
-
-        private static ListView GetView(ElecSnapshot data, ElecSide side, bool totalMode)
+        // One view per (side, ledger mode, density): eight small objects,
+        // each built only when a page asks for it.
+        private static readonly ListView[] views =
         {
-            ListView view = views[(side == ElecSide.Sources ? 0 : 2) + (totalMode ? 1 : 0)];
+            new ListView(), new ListView(), new ListView(), new ListView(),
+            new ListView(), new ListView(), new ListView(), new ListView(),
+        };
+
+        private static readonly Func<ElecEntry, string> EntryKey = entry => entry.Key;
+        private static readonly Func<ElecEntry, double> EntryValue = entry => entry.Value;
+
+        // Folded rows re-rank by their summed magnitude, like the raw entries.
+        private static int CompareCollapsed(CollapsedEntry<ElecEntry> a, CollapsedEntry<ElecEntry> b)
+        {
+            int byValue = Math.Abs(b.Sum).CompareTo(Math.Abs(a.Sum));
+            return byValue != 0 ? byValue : string.CompareOrdinal(a.Sample.Title, b.Sample.Title);
+        }
+
+        private static ListView GetView(ElecSnapshot data, ElecSide side, bool totalMode, bool compact)
+        {
+            ListView view = views[(side == ElecSide.Sources ? 0 : 4) + (totalMode ? 2 : 0) + (compact ? 1 : 0)];
             if (view.Version == snapshotVersion) return view;
 
             view.Version = snapshotVersion;
@@ -174,20 +189,37 @@ namespace MFDExtension.Elec
                 }
                 if (entries.Count == 0) continue; // empty categories are omitted
 
-                List<ElecEntry> captured = entries;
+                int count;
+                Action<StringBuilder, int, int> render;
+                if (compact)
+                {
+                    List<CollapsedEntry<ElecEntry>> folded = new List<CollapsedEntry<ElecEntry>>(entries.Count);
+                    EntryCollapser.Collapse(entries, folded, EntryKey, EntryValue, CompareCollapsed);
+                    count = folded.Count;
+                    render = (sb, index, width) => RenderEntry(sb, folded[index].Sample.Title, folded[index].Sum,
+                                                               folded[index].Count, width);
+                }
+                else
+                {
+                    List<ElecEntry> captured = entries;
+                    count = entries.Count;
+                    render = (sb, index, width) => RenderEntry(sb, captured[index].Title, captured[index].Value, 0, width);
+                }
+
                 view.Groups.Add(new ListGroup
                 {
                     Label = excluded ? "STORAGE (EXCLUDED)" : category.Title,
                     ColorTag = excluded ? DimTag : HeaderTag,
                     HeaderRight = FormatValue(sum),
-                    Count = entries.Count,
-                    RenderEntry = (sb, index, width) => RenderEntry(sb, captured[index], width),
+                    Count = count,
+                    RenderEntry = render,
                 });
             }
             return view;
         }
 
-        internal static string BuildListPage(Vessel vessel, ElecSide side, bool totalMode, int screenWidth, ref int scrollOffset)
+        internal static string BuildListPage(Vessel vessel, ElecSide side, bool totalMode, bool compact, int screenWidth,
+                                            ref int scrollOffset)
         {
             string title = side == ElecSide.Sources ? "ELEC SOURCES" : "ELEC LOADS";
             string fallback = UnavailablePage(vessel, title, screenWidth);
@@ -196,7 +228,7 @@ namespace MFDExtension.Elec
             ElecSnapshot data = GetSnapshot(vessel);
             if (!data.HasData) return NoDataPage(title, screenWidth);
 
-            ListView view = GetView(data, side, totalMode);
+            ListView view = GetView(data, side, totalMode, compact);
             int step = MarqueeStep();
             string cached = view.Text.Get(snapshotVersion, scrollOffset, screenWidth, step);
             if (cached != null) return cached;
@@ -218,7 +250,7 @@ namespace MFDExtension.Elec
                   .Append(side == ElecSide.Sources ? "(no active sources)" : "(no active loads)").Append(NL);
                 for (int i = 2; i < ScrollingListPage.BodyBudget; ++i) sb.Append(NL);
                 sb.Append('-', screenWidth).Append(NL);
-                AppendSplitRow(sb, string.Empty, hasStorage ? ModeLegend : string.Empty, screenWidth, false);
+                AppendSplitRow(sb, string.Empty, StaticLegend(hasStorage, compact, screenWidth), screenWidth, false);
                 scrollOffset = 0;
                 return view.Text.Set(snapshotVersion, scrollOffset, screenWidth, step, sb.ToString());
             }
@@ -226,34 +258,67 @@ namespace MFDExtension.Elec
             // May clamp scrollOffset; the cache is keyed on the clamped value,
             // which is what the module holds from the next poll on.
             ScrollingListPage.AppendBodyAndStatus(sb, view.Groups, ref scrollOffset, screenWidth, false,
-                                                  hasStorage ? ListLegendWithMode : ScrollingListPage.KeyLegend);
+                                                  ListHints(hasStorage, compact));
             return view.Text.Set(snapshotVersion, scrollOffset, screenWidth, step, sb.ToString());
         }
 
-        internal static void TryScrollDown(Vessel vessel, ElecSide side, bool totalMode, ref int scrollOffset)
+        internal static void TryScrollDown(Vessel vessel, ElecSide side, bool totalMode, bool compact, ref int scrollOffset)
         {
             if (vessel == null || !DbsReader.IsAvailable) return;
             ElecSnapshot data = GetSnapshot(vessel);
             if (!data.HasData) return;
-            ScrollingListPage.TryScrollDown(GetView(data, side, totalMode).Groups, ref scrollOffset);
+            ScrollingListPage.TryScrollDown(GetView(data, side, totalMode, compact).Groups, ref scrollOffset);
+        }
+
+        // Four keys for a line that holds three: the status line drops HOME
+        // first, then the mode hint.
+        private static readonly List<KeyHint> listHints = new List<KeyHint>(4);
+
+        // The summary and the empty-list frame write their own bottom row
+        // instead of the engine's status line: no position string to fit
+        // around, so both key hints always show.
+        private static string StaticLegend(bool hasStorage, bool compact, int screenWidth)
+        {
+            listHints.Clear();
+            if (hasStorage) listHints.Add(new KeyHint(ModeLegend, ScrollingListPage.ModePriority));
+            listHints.Add(new KeyHint(compact ? ScrollingListPage.ExpandHint : ScrollingListPage.CompactHint,
+                                      ScrollingListPage.DensityPriority));
+            return ScrollingListPage.FitHints(listHints, screenWidth);
+        }
+
+        private static List<KeyHint> ListHints(bool hasStorage, bool compact)
+        {
+            listHints.Clear();
+            if (hasStorage) listHints.Add(new KeyHint(ModeLegend, ScrollingListPage.ModePriority));
+            listHints.Add(new KeyHint(compact ? ScrollingListPage.ExpandHint : ScrollingListPage.CompactHint,
+                                      ScrollingListPage.DensityPriority));
+            listHints.Add(new KeyHint(ScrollingListPage.ScrollHint, ScrollingListPage.ScrollPriority));
+            listHints.Add(new KeyHint(ScrollingListPage.HomeHint, ScrollingListPage.HomePriority));
+            return listHints;
         }
 
         //   "   4.10  OX-STAT-XL Photovoltaic Pan"  - 2 indent + 7 value + 2 + title (marquee)
-        private static void RenderEntry(StringBuilder sb, ElecEntry entry, int screenWidth)
+        //   "  12.30  (3) OX-STAT-XL Photovoltaic"   - folded: summed value,
+        //   the count prefix comes out of the title column so values stay aligned.
+        private static void RenderEntry(StringBuilder sb, string title, double value, int count, int screenWidth)
         {
-            int titleBudget = screenWidth - ScrollingListPage.EntryIndent - ValueWidth - 2;
+            int titleBudget = screenWidth - ScrollingListPage.EntryIndent - ValueWidth - 2
+                              - EntryCollapser.CountPrefixWidth(count);
             sb.Append(' ', ScrollingListPage.EntryIndent)
-              .Append(FormatValue(Math.Abs(entry.Value)))
-              .Append("  ")
-              .Append(ScrollingListPage.Marquee(entry.Title, titleBudget, Time.realtimeSinceStartup))
-              .Append(NL);
+              .Append(FormatValue(Math.Abs(value)))
+              .Append("  ");
+            EntryCollapser.AppendCountPrefix(sb, count);
+            sb.Append(ScrollingListPage.Marquee(title, titleBudget, Time.realtimeSinceStartup)).Append(NL);
         }
 
         // ---- summary page ---------------------------------------------------
         private static readonly List<ElecEntry> topBuffer = new List<ElecEntry>();
-        private static readonly TextCache[] summaryText = { new TextCache(), new TextCache() }; // [PLANT, TOTAL]
+        private static readonly List<CollapsedEntry<ElecEntry>> topFolded = new List<CollapsedEntry<ElecEntry>>();
+        // [PLANT, TOTAL] x [expanded, compact]
+        private static readonly TextCache[] summaryText =
+            { new TextCache(), new TextCache(), new TextCache(), new TextCache() };
 
-        internal static string BuildSummaryPage(Vessel vessel, bool totalMode, int screenWidth)
+        internal static string BuildSummaryPage(Vessel vessel, bool totalMode, bool compact, int screenWidth)
         {
             const string title = "ELEC SUMMARY";
             string fallback = UnavailablePage(vessel, title, screenWidth);
@@ -262,7 +327,7 @@ namespace MFDExtension.Elec
             ElecSnapshot data = GetSnapshot(vessel);
             if (!data.HasData) return NoDataPage(title, screenWidth);
 
-            TextCache cache = summaryText[totalMode ? 1 : 0];
+            TextCache cache = summaryText[(totalMode ? 2 : 0) + (compact ? 1 : 0)];
             int step = MarqueeStep();
             string cached = cache.Get(snapshotVersion, 0, screenWidth, step);
             if (cached != null) return cached;
@@ -334,12 +399,12 @@ namespace MFDExtension.Elec
             sb.Append(NL);
             rows++;
 
-            rows += AppendTop(sb, data, ElecSide.Loads, totalMode, TopLoads, "TOP LOADS", screenWidth);
-            rows += AppendTop(sb, data, ElecSide.Sources, totalMode, TopSources, "TOP SOURCES", screenWidth);
+            rows += AppendTop(sb, data, ElecSide.Loads, totalMode, compact, TopLoads, "TOP LOADS", screenWidth);
+            rows += AppendTop(sb, data, ElecSide.Sources, totalMode, compact, TopSources, "TOP SOURCES", screenWidth);
 
             for (int i = rows; i < ScrollingListPage.BodyBudget; ++i) sb.Append(NL);
             sb.Append('-', screenWidth).Append(NL);
-            AppendSplitRow(sb, string.Empty, hasStorage ? ModeLegend : string.Empty, screenWidth, false);
+            AppendSplitRow(sb, string.Empty, StaticLegend(hasStorage, compact, screenWidth), screenWidth, false);
             return cache.Set(snapshotVersion, 0, screenWidth, step, sb.ToString());
         }
 
@@ -445,8 +510,11 @@ namespace MFDExtension.Elec
             }
         }
 
-        private static int AppendTop(StringBuilder sb, ElecSnapshot data, ElecSide side, bool totalMode, int limit,
-                                     string heading, int screenWidth)
+        // The digest folds across categories when compact: three identical
+        // radiators are one line worth reading, not the three this page has
+        // room for.
+        private static int AppendTop(StringBuilder sb, ElecSnapshot data, ElecSide side, bool totalMode, bool compact,
+                                     int limit, string heading, int screenWidth)
         {
             topBuffer.Clear();
             for (int i = 0; i < data.Categories.Count; ++i)
@@ -455,7 +523,6 @@ namespace MFDExtension.Elec
                 if (category.IsStorage && !totalMode) continue;
                 topBuffer.AddRange(side == ElecSide.Sources ? category.Sources : category.Loads);
             }
-            topBuffer.Sort((a, b) => Math.Abs(b.Value).CompareTo(Math.Abs(a.Value)));
 
             sb.Append(HeaderTag).Append(heading).Append(ResetTag).Append(NL);
             if (topBuffer.Count == 0)
@@ -463,8 +530,21 @@ namespace MFDExtension.Elec
                 sb.Append(' ', ScrollingListPage.EntryIndent).Append("(none)").Append(NL);
                 return 2;
             }
+
+            if (compact)
+            {
+                EntryCollapser.Collapse(topBuffer, topFolded, EntryKey, EntryValue, CompareCollapsed);
+                int foldedShown = Math.Min(limit, topFolded.Count);
+                for (int i = 0; i < foldedShown; ++i)
+                {
+                    RenderEntry(sb, topFolded[i].Sample.Title, topFolded[i].Sum, topFolded[i].Count, screenWidth);
+                }
+                return 1 + foldedShown;
+            }
+
+            topBuffer.Sort((a, b) => Math.Abs(b.Value).CompareTo(Math.Abs(a.Value)));
             int shown = Math.Min(limit, topBuffer.Count);
-            for (int i = 0; i < shown; ++i) RenderEntry(sb, topBuffer[i], screenWidth);
+            for (int i = 0; i < shown; ++i) RenderEntry(sb, topBuffer[i].Title, topBuffer[i].Value, 0, screenWidth);
             return 1 + shown;
         }
 

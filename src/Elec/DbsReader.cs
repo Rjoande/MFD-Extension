@@ -11,6 +11,10 @@ namespace MFDExtension.Elec
     {
         public string Title;
         public double Value;
+        // Part id plus module name, for folding a symmetry group into one row:
+        // culture-invariant, unlike Title (which DBS localizes), and never
+        // merges two handlers of the same part into a single row.
+        public string Key;
     }
 
     // One DBS UI category ("Solar Panels", "Engines"...) plus our own OTHER
@@ -338,7 +342,9 @@ namespace MFDExtension.Elec
                 }
                 if (string.IsNullOrEmpty(title)) title = module.part.partInfo != null ? module.part.partInfo.title : module.part.name;
 
-                ElecEntry entry = new ElecEntry { Title = title, Value = value };
+                string entryKey = (module.part.partInfo != null ? module.part.partInfo.name : module.part.name)
+                                  + ":" + module.moduleName;
+                ElecEntry entry = new ElecEntry { Title = title, Value = value, Key = entryKey };
                 if (value > 0.0)
                 {
                     category.Sources.Add(entry);

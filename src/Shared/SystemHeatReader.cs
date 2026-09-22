@@ -14,6 +14,10 @@ namespace MFDExtension.Shared
     {
         public string Title;
         public float Flux;
+        // Part id plus module name, for folding a symmetry group into one row:
+        // culture-invariant, unlike Title, and never merges two modules of the
+        // same part into a single row.
+        public string Key;
     }
 
     internal sealed class HeatLoopInfo
@@ -416,16 +420,18 @@ namespace MFDExtension.Shared
                 }
 
                 string title = module.part.partInfo != null ? module.part.partInfo.title : module.part.name;
+                string key = (module.part.partInfo != null ? module.part.partInfo.name : module.part.name)
+                             + ":" + module.moduleName;
                 if (total > 0f)
                 {
                     info.Generated += total;
-                    info.Members.Add(new HeatMember { Title = title, Flux = total });
+                    info.Members.Add(new HeatMember { Title = title, Flux = total, Key = key });
                 }
                 else
                 {
                     info.Rejected -= total;
                     if (float.IsNaN(consumed) || float.IsInfinity(consumed) || consumed > 0f) consumed = 0f;
-                    sinkBuffer.Add(new HeatMember { Title = title, Flux = consumed });
+                    sinkBuffer.Add(new HeatMember { Title = title, Flux = consumed, Key = key });
                 }
             }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.2
+
+- **Compact lists on TCS LOOPS and ELEC.** Identical parts (a symmetry group of radiators, a bank of solar panels) fold into one row, with their heat or power summed. Use MFD's buttons ◄/► to collapse/expand.
+
 ## v0.4.1
 
 - **Fixed: black screen on installs without RealBattery.** The BMS bay's fallback page was renamed in v0.3.1 but its registration with the host monitor was not, so the monitor was told about a page that did not exist and failed to configure, taking every page of every BasicMFD in the IVA down with it. Installs with RealBattery were never affected.

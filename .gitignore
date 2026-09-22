@@ -6,7 +6,9 @@ src/bin/
 src/.vs/
 
 # Internal development material — design decisions, research handoff notes,
-# the Claude Code project hub — not part of the shipped mod, kept local only.
+# the Claude Code project hubs — not part of the shipped mod, kept local only.
+# No leading slash: the hub of a satellite (Extras/VVHolo/CLAUDE.md and the
+# like) is ignored at any depth, not just the one in the root.
 notes/
 CLAUDE.md
 ReleaseNote.md
