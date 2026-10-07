@@ -1,4 +1,4 @@
-# MFD Extended
+# MFD Extension
 
 An additive "second world" for an existing RasterPropMonitor / MOARdV's Avionics Systems (MAS) multi-function display, reachable with a button
 press, exitable the same way, without replacing, renaming, or otherwise disturbing anything the host IVA already does.

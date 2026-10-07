@@ -1,6 +1,6 @@
-# MFD Extended — hosting guide
+# MFD Extension — hosting guide
 
-MFD Extended adds a second, additive "world" to an existing RasterPropMonitor
+MFD Extension adds a second, additive "world" to an existing RasterPropMonitor
 (RPM) / Avionics Systems (MAS) multi-function display, reachable with a
 button press and exitable the same way — without replacing, renaming, or
 otherwise disturbing anything the host IVA already does. This document is
@@ -14,7 +14,7 @@ implementation exists but is unverified and archived — see
 ## Navigation model
 
 ```
-   host's own home page                  MFD Extended hub (MFDExt_Stby)
+   host's own home page                  MFD Extension hub (MFDExt_Stby)
   ┌───────────────────────┐  NEXT/PREV  ┌───────────────────────────┐
   │ ATT GRAPH TRGT AUTO...│ ──────────► │ SA BMS FADEC SWC ILS ...  │
   │                       │ ◄────────── │                           │
@@ -148,7 +148,7 @@ Two things make this bay different from A-E:
   fallback needed. The page always exists; only its *content* depends on
   DangIt/FAR, handled internally (degrades to an explanatory message, see
   `CasAggregator.NoSourcesPage`).
-- **It's the first real compiled code MFD Extended ships** (`MFDExtCasModule`,
+- **It's the first real compiled code MFD Extension ships** (`MFDExtCasModule`,
   an `InternalModule` registered as a companion `MODULE` on the prop,
   §5 of `Config/Additive/MAS_BasicMFD.cfg`) via MAS's `textmethod` bridge —
   `TEXT { textmethod = ClassName:MethodName }`, resolved by matching
@@ -322,11 +322,11 @@ three pages).
        }
    }
    ```
-   It cannot live in MFD Extended's own files: a name in that list with no
+   It cannot live in MFD Extension's own files: a name in that list with no
    `MAS_PAGE` behind it doesn't degrade to a dead button — it makes
    `MASMonitor.Start()` throw and the **entire monitor black-screens**,
    host pages included (see Gotchas). Only your repo knows for certain
-   that your page exists, so only your repo may register it. MFD Extended
+   that your page exists, so only your repo may register it. MFD Extension
    registers each bay's own "not detected" fallback under the matching
    `NEEDS[!YourAssembly]`, so exactly one of the two registrations is
    active on any install.
@@ -348,7 +348,7 @@ three pages).
 Most of the host's own pages open the same way: row 0 is a dark petrol band
 carrying the page title, closed by a thin light rule, with content starting
 right under it — no `-----` line needed. The band is not text: it is a
-texture stretched over the whole screen by one `IMAGE` node. MFD Extended
+texture stretched over the whole screen by one `IMAGE` node. MFD Extension
 ships its own, `MFDExtension/Textures/bg02` (16×304, same format and top
 band as the host's `JSI/RasterPropMonitor/Library/Textures/bg01`, plus a
 `#333333` grey band on its bottom 15 texels): stretched to 640×640 the petrol

@@ -1,4 +1,4 @@
--- Shared navigation logic for the MFD Extended additive branch.
+-- Shared navigation logic for the MFD Extension additive branch.
 --
 -- A-G, R1-R7 and STBY on MAS_JSI_BasicMFD are NOT per-page softkeys: each is
 -- wired once, prop-wide, straight to a fixed action via onClick. To let them

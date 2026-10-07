@@ -5,7 +5,7 @@ $vref: '#/ckan/ksp-avc'
 x_netkan_version_edit: '^[vV]?(?<version>.+)$'
 license: MIT
 resources:
-  homepage: https://forum.kerbalspaceprogram.com/topic/231711-112x-mfd-extended-a-shared-module-bay-for-mas-screens/
+  homepage: https://forum.kerbalspaceprogram.com/topic/231711-112x-mfd-extension-a-shared-module-bay-for-mas-screens/
 tags:
   - plugin
   - information

@@ -1,5 +1,5 @@
-MFD EXTENDED  v0.4.2
-====================
+MFD EXTENSION  v0.4.2
+=====================
 
 An additive "second world" for an existing RasterPropMonitor / MOARdV's
 Avionics Systems (MAS) multi-function display, reachable with a button press,

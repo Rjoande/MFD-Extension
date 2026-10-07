@@ -25,12 +25,12 @@ namespace MFDExtension
 
         public string GetVersionLine(int screenWidth, int screenHeight)
         {
-            return "MFD Extended " + VersionTag;
+            return "MFD Extension " + VersionTag;
         }
 
         public string GetStatusLine(int screenWidth, int screenHeight)
         {
-            return "-[hw] MFDEXT[/hw] MFD Extended " + VersionTag;
+            return "-[hw] MFDEXT[/hw] MFD Extension " + VersionTag;
         }
     }
 }
