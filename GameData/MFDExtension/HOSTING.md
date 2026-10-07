@@ -340,6 +340,81 @@ three pages).
    currently points at `MFDExt_Unclaimed`, change that one
    `MFDExt_Button<X>` function to target your own page instead — the
    shared placeholder just stops being reachable from that button.
+5. **Give your page the shared frame** (title bar and status band) — see
+   the next section.
+
+## Page frame: title bar and status band
+
+Most of the host's own pages open the same way: row 0 is a dark petrol band
+carrying the page title, closed by a thin light rule, with content starting
+right under it — no `-----` line needed. The band is not text: it is a
+texture stretched over the whole screen by one `IMAGE` node. MFD Extended
+ships its own, `MFDExtension/Textures/bg02` (16×304, same format and top
+band as the host's `JSI/RasterPropMonitor/Library/Textures/bg01`, plus a
+`#333333` grey band on its bottom 15 texels): stretched to 640×640 the petrol
+band lands exactly on text row 0 and the grey one on row 19, the status row.
+CAS, ELEC and TCS use it; a hosted bay should too, so every page behind the
+hub reads as one family:
+
+```
+MAS_PAGE
+{
+    name = MFDExt_YourBay
+
+    IMAGE
+    {
+        texture = MFDExtension/Textures/bg02
+        position = 0, 0
+        size = 640, 640
+    }
+    TEXT
+    {
+        ...
+    }
+}
+```
+
+- **The `IMAGE` goes before every other node.** MAS gives each node of a
+  page a slightly nearer depth than the one before it (`MASPage`, depth
+  decremented per component), so a later node draws on top of an earlier
+  one.
+- **Row 0: the title alone, centered on 40 columns**, uppercase
+  (`FAULT SUMMARY`, `ELEC SOURCES`, `TCS LOOPS`). Nothing else on that row,
+  vessel name included.
+- **Row 1: the page's one-line summary**, if it has one (counts, totals),
+  flushed right and dimmed (`[#888888FF]`, then back to white); otherwise
+  blank. The rule falls on the boundary between rows 0 and 1, so row 1 stays
+  readable.
+- **Row 18 stays blank** (it used to hold a `-----` rule): the grey band
+  already separates the status row from the body.
+- **Row 19, the status row: white text, left-aligned.** A scrolling page
+  writes `X-Y of N` padded to its widest form for that `N` (3 × digits of N
+  + 5 columns), then two spaces, then the key hints separated by two spaces:
+  `1-7 of 7  ▲▼: scroll  ○: home`. The padding keeps the hints on the same
+  column while the player scrolls. A page with no position starts its hints
+  at column 0.
+- **When a page state has no key legend** (a summary binding no key, an
+  empty list, a "not detected" or "no data" fallback, CAS's "all systems
+  nominal"), row 19 carries a BITE-style self-test readout instead of
+  staying empty: bay name, state, optional detail, version, two spaces
+  apart — `TCS  BITE PASS  v0.4.3`, `CAS  BITE PASS  4 SRC  v0.4.3`,
+  `ELEC  BITE WAIT  v0.4.3` (no data yet), `TCS  LINK FAIL  v0.4.3` (mod not
+  installed). It never replaces a legend.
+- **The texture is chosen per bay, not per page**, so the frame stays still
+  while the player cycles a bay's pages: `bg02` if at least one page of the
+  bay ever shows a status line, the host's own
+  `JSI/RasterPropMonitor/Library/Textures/bg01` (title bar only) if none
+  does.
+- Inside this repo, `ScrollingListPage.AppendTitleBar`,
+  `AppendSummaryRow`, `AppendBodyAndStatus` and `AppendSelfTest` write all
+  of this; `HeaderRows = 2` and `StatusSeparatorRows = 1` still account for rows
+  0-1 and 18.
+- **Not for placeholders or the hub.** The "not detected" pages,
+  `MFDExt_Unclaimed` and the STBY hub keep a plain screen: the hub mirrors
+  the host's home page, which has no band. Full-screen renders (ILS) don't
+  use it either.
+- A hosted page may use the texture freely: it only exists alongside MFD
+  Extended, and so does every page registered on this monitor.
 
 ## Overriding your own button
 

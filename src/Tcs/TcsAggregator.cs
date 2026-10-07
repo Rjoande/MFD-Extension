@@ -49,6 +49,8 @@ namespace MFDExtension.Tcs
         private const int ReactorRows = 4;              // title + 3 data rows, no blank: the unindented title separates blocks
         private const int GridValueWidth = 12;          // reactor rows: first value block, "1234/1234 K" plus one separator
 
+        private const string BayName = "TCS";
+
         private static readonly string NL = ScrollingListPage.NL;
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -157,12 +159,8 @@ namespace MFDExtension.Tcs
             if (cached != null) return cached;
 
             StringBuilder sb = new StringBuilder(1024);
-            string vesselName = vessel.vesselName ?? string.Empty;
-            int nameBudget = screenWidth - title.Length - 3;
-            if (nameBudget < 0) nameBudget = 0;
-            if (vesselName.Length > nameBudget) vesselName = vesselName.Substring(0, nameBudget);
-            AppendSplitRow(sb, title, vesselName, screenWidth);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            ScrollingListPage.AppendSummaryRow(sb, string.Empty, screenWidth);
 
             if (data.Loops.Count == 0 && data.Reactors.Count == 0)
             {
@@ -170,8 +168,7 @@ namespace MFDExtension.Tcs
                 sb.Append("NO HEAT LOOPS ON THIS VESSEL").Append(NL);
                 sb.Append(NL);
                 sb.Append("No part carries a SystemHeat module.").Append(NL);
-                for (int i = 4; i < ScrollingListPage.BodyBudget; ++i) sb.Append(NL);
-                sb.Append('-', screenWidth).Append(NL);
+                AppendSelfTest(sb, "BITE PASS", screenWidth);
                 return summaryText.Set(snapshotVersion, 0, screenWidth, step, sb.ToString());
             }
 
@@ -239,9 +236,7 @@ namespace MFDExtension.Tcs
                 rows++;
             }
 
-            for (int i = rows; i < ScrollingListPage.BodyBudget; ++i) sb.Append(NL);
-            sb.Append('-', screenWidth).Append(NL);
-            // no key does anything on this page: empty status line, same 20-row frame
+            AppendSelfTest(sb, "BITE PASS", screenWidth); // no key does anything on this page
             return summaryText.Set(snapshotVersion, 0, screenWidth, step, sb.ToString());
         }
 
@@ -420,16 +415,14 @@ namespace MFDExtension.Tcs
             float net = data.Generated - data.Rejected;
             string right = data.Loops.Count.ToString(Inv) + (data.Loops.Count == 1 ? " LOOP  " : " LOOPS  ")
                            + ArrowFor(net) + " " + FormatFlux(Math.Abs(net)).TrimStart();
-            AppendSplitRow(sb, title, right, screenWidth);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            ScrollingListPage.AppendSummaryRow(sb, right, screenWidth);
 
             if (view.Groups.Count == 0)
             {
                 sb.Append(NL);
                 sb.Append(' ', ScrollingListPage.EntryIndent).Append("(no heat loops)").Append(NL);
-                for (int i = 2; i < ScrollingListPage.BodyBudget; ++i) sb.Append(NL);
-                sb.Append('-', screenWidth).Append(NL);
-                // no key does anything on this page: empty status line, same 20-row frame
+                AppendSelfTest(sb, "BITE PASS", screenWidth); // nothing to scroll
                 scrollOffset = 0;
                 return view.Text.Set(snapshotVersion, scrollOffset, screenWidth, step, sb.ToString());
             }
@@ -573,16 +566,14 @@ namespace MFDExtension.Tcs
 
             StringBuilder sb = new StringBuilder(1024);
             string right = data.Reactors.Count.ToString(Inv) + (data.Reactors.Count == 1 ? " UNIT" : " UNITS");
-            AppendSplitRow(sb, title, right, screenWidth);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            ScrollingListPage.AppendSummaryRow(sb, right, screenWidth);
 
             if (view.Groups.Count == 0)
             {
                 sb.Append(NL);
                 sb.Append(' ', ScrollingListPage.EntryIndent).Append("(no reactors)").Append(NL);
-                for (int i = 2; i < ScrollingListPage.BodyBudget; ++i) sb.Append(NL);
-                sb.Append('-', screenWidth).Append(NL);
-                // no key does anything on this page: empty status line, same 20-row frame
+                AppendSelfTest(sb, "BITE PASS", screenWidth); // nothing to scroll
                 scrollOffset = 0;
                 return view.Text.Set(snapshotVersion, scrollOffset, screenWidth, step, sb.ToString());
             }
@@ -678,49 +669,42 @@ namespace MFDExtension.Tcs
             return secs + "s";
         }
 
-        // `right` may carry color tags; `left` never does.
-        private static void AppendSplitRow(StringBuilder sb, string left, string right, int screenWidth, bool newLine = true)
-        {
-            int rightWidth = ScrollingListPage.VisibleLength(right);
-            int gap = screenWidth - left.Length - rightWidth;
-            if (gap < 1 && rightWidth > 0 && left.Length > 0)
-            {
-                int room = Math.Max(0, screenWidth - rightWidth - 1);
-                if (left.Length > room) left = left.Substring(0, room);
-                gap = screenWidth - left.Length - rightWidth;
-            }
-            sb.Append(left).Append(' ', Math.Max(0, gap)).Append(right);
-            if (newLine) sb.Append(NL);
-        }
-
         // null = SystemHeat is installed and the vessel is valid, carry on.
         private static string UnavailablePage(Vessel vessel, string title, int screenWidth)
         {
             if (SystemHeatReader.IsAvailable) return vessel == null ? NoDataPage(title, screenWidth) : null;
 
             StringBuilder sb = new StringBuilder();
-            sb.Append(title).Append(NL);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            sb.Append(NL);
             sb.Append(NL);
             sb.Append("SYSTEMHEAT NOT DETECTED").Append(NL);
             sb.Append(NL);
             sb.Append("Install SystemHeat for the vessel's").Append(NL);
             sb.Append("thermal loops, radiators and").Append(NL);
             sb.Append("reactors.");
+            AppendSelfTest(sb, "LINK FAIL", screenWidth);
             return sb.ToString();
         }
 
         private static string NoDataPage(string title, int screenWidth)
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append(title).Append(NL);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            sb.Append(NL);
             sb.Append(NL);
             sb.Append("NO DATA").Append(NL);
             sb.Append(NL);
             sb.Append("Waiting for SystemHeat to build").Append(NL);
             sb.Append("this vessel's heat loops.");
+            AppendSelfTest(sb, "BITE WAIT", screenWidth);
             return sb.ToString();
+        }
+
+        // Row 19 of the states with no key legend: BITE PASS / WAIT / LINK FAIL.
+        private static void AppendSelfTest(StringBuilder sb, string state, int screenWidth)
+        {
+            ScrollingListPage.AppendSelfTest(sb, BayName, state, null, MFDExtVersionModule.VersionTag, screenWidth);
         }
     }
 }

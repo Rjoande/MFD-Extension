@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.3
+
+- **MAS-style title bar on CAS, ELEC and TCS.** Every page now opens like the original MAS pages (title centered on the petrol band).
+- **Status line on a grey band**, key legend left-aligned and steady while scrolling; no more `-----` rules around the list. Where no key applies, a self-test readout (`CAS  BITE PASS  4 SRC  v0.4.3`) takes its place.
+
 ## v0.4.2
 
 - **Compact lists on TCS LOOPS and ELEC.** Identical parts (a symmetry group of radiators, a bank of solar panels) fold into one row, with their heat or power summed. Use MFD's buttons ◄/► to collapse/expand.

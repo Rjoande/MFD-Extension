@@ -124,7 +124,9 @@ namespace MFDExtension.Cas
             if (total == 0)
             {
                 scrollOffset = 0;
-                return NominalPage(screenWidth);
+                int sources = (dangItLoaded ? 1 : 0) + (farLoaded ? 1 : 0) + (realBatteryLoaded ? 1 : 0)
+                              + (systemHeatLoaded ? 1 : 0);
+                return NominalPage(screenWidth, sources);
             }
 
             StringBuilder sb = new StringBuilder();
@@ -276,12 +278,13 @@ namespace MFDExtension.Cas
             }
         }
 
+        private const string PageTitle = "FAULT SUMMARY";
+
         private static void AppendHeader(StringBuilder sb, int screenWidth, int warnCount, int cautionCount, int advisoryCount)
         {
             string counts = "W:" + warnCount + " C:" + cautionCount + " A:" + advisoryCount;
-            int padWidth = screenWidth - counts.Length;
-            sb.Append(padWidth > 0 ? "FAULT SUMMARY".PadRight(padWidth) : "FAULT SUMMARY").Append(counts).Append(NL);
-            sb.Append(new string('-', screenWidth)).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, PageTitle, screenWidth);
+            ScrollingListPage.AppendSummaryRow(sb, counts, screenWidth);
         }
 
         // One entry = one row: fixed-width label column, then the part title
@@ -296,26 +299,35 @@ namespace MFDExtension.Cas
               .Append(NL);
         }
 
-        private static string NominalPage(int screenWidth)
+        private static string NominalPage(int screenWidth, int sources)
         {
             StringBuilder sb = new StringBuilder();
             AppendHeader(sb, screenWidth, 0, 0, 0);
             sb.Append(NL);
             sb.Append("ALL SYSTEMS NOMINAL");
+            AppendSelfTest(sb, sources, screenWidth);
             return sb.ToString();
+        }
+
+        // "N SRC" counts the fault sources actually being watched.
+        private static void AppendSelfTest(StringBuilder sb, int sources, int screenWidth)
+        {
+            ScrollingListPage.AppendSelfTest(sb, "CAS", "BITE PASS", sources + " SRC", MFDExtVersionModule.VersionTag,
+                                             screenWidth);
         }
 
         private static string NoSourcesPage(int screenWidth)
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append("FAULT SUMMARY").Append(NL);
-            sb.Append(new string('-', screenWidth)).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, PageTitle, screenWidth);
+            sb.Append(NL);
             sb.Append(NL);
             sb.Append("NO FAULT SOURCES DETECTED").Append(NL);
             sb.Append(NL);
             sb.Append("Install DangIt, FAR, RealBattery").Append(NL);
             sb.Append("or SystemHeat for active fault").Append(NL);
             sb.Append("monitoring.");
+            AppendSelfTest(sb, 0, screenWidth);
             return sb.ToString();
         }
     }

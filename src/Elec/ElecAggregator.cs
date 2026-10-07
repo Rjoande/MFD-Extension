@@ -62,6 +62,8 @@ namespace MFDExtension.Elec
         // longer than what shows - always measure it with VisibleLength.
         private const string ModeLegend = GreenTag + "\u2190" + ResetTag + ": mode";
 
+        private const string BayName = "ELEC";
+
         private static readonly string NL = ScrollingListPage.NL;
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
@@ -238,9 +240,8 @@ namespace MFDExtension.Elec
             StringBuilder sb = new StringBuilder(1024);
             string counts = FormatValue(view.Total).TrimStart() + " Ec/s " + view.Count + (side == ElecSide.Sources ? " SRC" : " LD");
             if (view.Idle > 0) counts += " +" + view.Idle + " IDLE";
-            if (title.Length + 1 + counts.Length > screenWidth) title = side == ElecSide.Sources ? "SOURCES" : "LOADS";
-            AppendSplitRow(sb, title, counts, screenWidth);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            ScrollingListPage.AppendSummaryRow(sb, counts, screenWidth);
 
             if (view.Groups.Count == 0)
             {
@@ -249,8 +250,8 @@ namespace MFDExtension.Elec
                 sb.Append(' ', ScrollingListPage.EntryIndent)
                   .Append(side == ElecSide.Sources ? "(no active sources)" : "(no active loads)").Append(NL);
                 for (int i = 2; i < ScrollingListPage.BodyBudget; ++i) sb.Append(NL);
-                sb.Append('-', screenWidth).Append(NL);
-                AppendSplitRow(sb, string.Empty, StaticLegend(hasStorage, compact, screenWidth), screenWidth, false);
+                sb.Append(NL);
+                sb.Append(StaticLegend(hasStorage, compact, screenWidth));
                 scrollOffset = 0;
                 return view.Text.Set(snapshotVersion, scrollOffset, screenWidth, step, sb.ToString());
             }
@@ -354,12 +355,8 @@ namespace MFDExtension.Elec
             double net = generated - consumed;
 
             StringBuilder sb = new StringBuilder(1024);
-            string vesselName = vessel.vesselName ?? string.Empty;
-            int nameBudget = screenWidth - title.Length - 3;
-            if (nameBudget < 0) nameBudget = 0;
-            if (vesselName.Length > nameBudget) vesselName = vesselName.Substring(0, nameBudget);
-            AppendSplitRow(sb, title, vesselName, screenWidth);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            ScrollingListPage.AppendSummaryRow(sb, string.Empty, screenWidth);
 
             int rows = 0;
 
@@ -403,8 +400,8 @@ namespace MFDExtension.Elec
             rows += AppendTop(sb, data, ElecSide.Sources, totalMode, compact, TopSources, "TOP SOURCES", screenWidth);
 
             for (int i = rows; i < ScrollingListPage.BodyBudget; ++i) sb.Append(NL);
-            sb.Append('-', screenWidth).Append(NL);
-            AppendSplitRow(sb, string.Empty, StaticLegend(hasStorage, compact, screenWidth), screenWidth, false);
+            sb.Append(NL);
+            sb.Append(StaticLegend(hasStorage, compact, screenWidth));
             return cache.Set(snapshotVersion, 0, screenWidth, step, sb.ToString());
         }
 
@@ -594,49 +591,42 @@ namespace MFDExtension.Elec
             return secs + "s";
         }
 
-        // `right` may carry color tags (the mode legend); `left` never does.
-        private static void AppendSplitRow(StringBuilder sb, string left, string right, int screenWidth, bool newLine = true)
-        {
-            int rightWidth = ScrollingListPage.VisibleLength(right);
-            int gap = screenWidth - left.Length - rightWidth;
-            if (gap < 1 && rightWidth > 0 && left.Length > 0)
-            {
-                int room = Math.Max(0, screenWidth - rightWidth - 1);
-                if (left.Length > room) left = left.Substring(0, room);
-                gap = screenWidth - left.Length - rightWidth;
-            }
-            sb.Append(left).Append(' ', Math.Max(0, gap)).Append(right);
-            if (newLine) sb.Append(NL);
-        }
-
         // null = DBS is installed and the vessel is valid, carry on.
         private static string UnavailablePage(Vessel vessel, string title, int screenWidth)
         {
             if (DbsReader.IsAvailable) return vessel == null ? NoDataPage(title, screenWidth) : null;
 
             StringBuilder sb = new StringBuilder();
-            sb.Append(title).Append(NL);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            sb.Append(NL);
             sb.Append(NL);
             sb.Append("DYNAMICBATTERYSTORAGE NOT DETECTED").Append(NL);
             sb.Append(NL);
             sb.Append("Install DynamicBatteryStorage").Append(NL);
             sb.Append("(Systems Monitor) for the vessel's").Append(NL);
             sb.Append("electrical ledger.");
+            AppendSelfTest(sb, "LINK FAIL", screenWidth);
             return sb.ToString();
         }
 
         private static string NoDataPage(string title, int screenWidth)
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append(title).Append(NL);
-            sb.Append('-', screenWidth).Append(NL);
+            ScrollingListPage.AppendTitleBar(sb, title, screenWidth);
+            sb.Append(NL);
             sb.Append(NL);
             sb.Append("NO DATA").Append(NL);
             sb.Append(NL);
             sb.Append("Waiting for DynamicBatteryStorage").Append(NL);
             sb.Append("to build this vessel's data.");
+            AppendSelfTest(sb, "BITE WAIT", screenWidth);
             return sb.ToString();
+        }
+
+        // Row 19 of the states with no key legend: BITE PASS / WAIT / LINK FAIL.
+        private static void AppendSelfTest(StringBuilder sb, string state, int screenWidth)
+        {
+            ScrollingListPage.AppendSelfTest(sb, BayName, state, null, MFDExtVersionModule.VersionTag, screenWidth);
         }
     }
 }

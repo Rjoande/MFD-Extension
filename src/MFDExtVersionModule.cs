@@ -10,7 +10,7 @@ namespace MFDExtension
     {
         private static string versionTag;
 
-        private static string VersionTag
+        internal static string VersionTag
         {
             get
             {

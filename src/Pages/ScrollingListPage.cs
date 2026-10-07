@@ -52,13 +52,14 @@ namespace MFDExtension.Pages
     internal static class ScrollingListPage
     {
         public const int VisibleRows = 20;
-        public const int HeaderRows = 2;          // title line + dashes, written by the caller
-        public const int StatusSeparatorRows = 1; // "-----" above the status line, worth one body row
+        public const int HeaderRows = 2;          // title bar + summary row, written by the caller
+        public const int StatusSeparatorRows = 1; // blank row above the status line's grey band
         public const int StatusLineRows = 1;      // unconditional: "X-Y of N" + key legend
         public const int BodyBudget = VisibleRows - HeaderRows - StatusSeparatorRows - StatusLineRows; // 16
         public const int EntryIndent = 2;         // entries, "(none)" and "+N MORE" all indent by this
 
         public const string ResetColorTag = "[#FFFFFFFF]";
+        public const string SummaryColorTag = "[#888888FF]";
 
         // Key legend, right-flushed on the status line; both glyphs are
         // confirmed to render in the monitor's font.
@@ -83,6 +84,60 @@ namespace MFDExtension.Pages
         // '\n' the whole page renders as one clipped row, silently. Never
         // hardcode '\n' in page text.
         public static readonly string NL = Environment.NewLine;
+
+        // ---- header rows ----
+        // Row 0 sits on the host's title bar (the page's bg01 IMAGE node draws
+        // the band and its bottom rule): the title alone, centered.
+        public static void AppendTitleBar(StringBuilder sb, string title, int screenWidth)
+        {
+            if (title.Length > screenWidth) title = title.Substring(0, screenWidth);
+            sb.Append(' ', (screenWidth - title.Length) / 2).Append(title).Append(NL);
+        }
+
+        // Row 1: the page's own summary flushed right and dimmed; plain text,
+        // no color tags. An empty summary leaves the row blank.
+        public static void AppendSummaryRow(StringBuilder sb, string summary, int screenWidth)
+        {
+            if (!string.IsNullOrEmpty(summary))
+            {
+                if (summary.Length > screenWidth) summary = summary.Substring(0, screenWidth);
+                sb.Append(' ', screenWidth - summary.Length)
+                  .Append(SummaryColorTag).Append(summary).Append(ResetColorTag);
+            }
+            sb.Append(NL);
+        }
+
+        // ---- self-test row ----
+        // Row 19 of a page state with no key legend: a BITE-style readout,
+        // "CAS  BITE PASS  4 SRC  v0.4.3". Pads the page down to row 19 and
+        // writes nothing if that row already holds text.
+        public static void AppendSelfTest(StringBuilder sb, string bay, string state, string detail, string version,
+                                          int screenWidth)
+        {
+            if (!PadToRow(sb, VisibleRows - 1)) return;
+            string line = bay + HintSeparator + state;
+            if (!string.IsNullOrEmpty(detail)) line += HintSeparator + detail;
+            if (!string.IsNullOrEmpty(version)) line += HintSeparator + version;
+            if (line.Length > screenWidth) line = line.Substring(0, screenWidth);
+            sb.Append(line);
+        }
+
+        // Ends lines until the cursor sits at the start of `row` (0-based).
+        // False if the text already reached past it, or wrote on it.
+        private static bool PadToRow(StringBuilder sb, int row)
+        {
+            string text = sb.ToString();
+            int current = 0, lineStart = 0;
+            for (int i = text.IndexOf(NL, StringComparison.Ordinal); i >= 0;
+                 i = text.IndexOf(NL, i + NL.Length, StringComparison.Ordinal))
+            {
+                current++;
+                lineStart = i + NL.Length;
+            }
+            if (current > row || (current == row && lineStart < text.Length)) return false;
+            for (; current < row; ++current) sb.Append(NL);
+            return true;
+        }
 
         public static int TotalEntries(IList<ListGroup> groups)
         {
@@ -136,11 +191,10 @@ namespace MFDExtension.Pages
 
             int entriesShown = AppendBody(sb, groups, scrollOffset, screenWidth, showEmptyGroups, out int rowsUsed);
 
-            for (int i = rowsUsed; i < BodyBudget; ++i)
+            for (int i = rowsUsed; i < BodyBudget + StatusSeparatorRows; ++i)
             {
                 sb.Append(NL);
             }
-            sb.Append('-', screenWidth).Append(NL);
             AppendStatusLine(sb, total, scrollOffset, entriesShown, screenWidth, keyLegend, hints);
         }
 
@@ -320,28 +374,36 @@ namespace MFDExtension.Pages
             return rowsNeeded <= BodyBudget;
         }
 
-        // "X-Y of N" on the left, key legend flushed right. With `hints` the
-        // legend is assembled to fit what the position string leaves free.
+        // "X-Y of N", then the key legend right after it, left-aligned. The
+        // position field is padded to its widest form for this N, so the
+        // legend keeps its column while the player scrolls.
         private static void AppendStatusLine(StringBuilder sb, int total, int scrollOffset, int entriesShown, int screenWidth,
                                              string keyLegend, IList<KeyHint> hints)
         {
             int first = scrollOffset + 1;
             int last = scrollOffset + entriesShown;
-            string position = first + "-" + last + " of " + total;
+            string position = (first + "-" + last + " of " + total).PadRight(PositionFieldWidth(total));
 
-            if (hints != null) keyLegend = FitHints(hints, screenWidth - position.Length - 1);
+            if (hints != null) keyLegend = FitHints(hints, screenWidth - position.Length - HintSeparator.Length);
 
             // The legend may carry inline color tags (ELEC colors its mode
             // key), so measure what is VISIBLE, not the raw string length.
-            int gap = screenWidth - position.Length - VisibleLength(keyLegend);
-            if (gap > 0)
+            if (position.Length + HintSeparator.Length + VisibleLength(keyLegend) <= screenWidth)
             {
-                sb.Append(position).Append(' ', gap).Append(keyLegend);
+                sb.Append(position);
+                if (!string.IsNullOrEmpty(keyLegend)) sb.Append(HintSeparator).Append(keyLegend);
                 return;
             }
             string line = position + " " + StripColorTags(keyLegend); // overflow: plain text, cut at the edge
             if (line.Length > screenWidth) line = line.Substring(0, screenWidth);
             sb.Append(line);
+        }
+
+        // "X-Y of N" with X and Y as wide as N: the longest position this list can show.
+        public static int PositionFieldWidth(int total)
+        {
+            int digits = Math.Max(1, total).ToString(System.Globalization.CultureInfo.InvariantCulture).Length;
+            return 3 * digits + 5; // "-" + " of "
         }
 
         // Joins the hints in the order given, dropping the least important
